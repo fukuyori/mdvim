@@ -80,6 +80,8 @@ const MarkdownParser = {
   },
   
   parse(markdown) {
+    // CRLFをLFに正規化
+    markdown = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = markdown.split('\n');
     const html = [];
     let inCodeBlock = false;
@@ -160,15 +162,14 @@ const MarkdownParser = {
             const mermaidCode = codeBuffer.join('\n');
             html.push(`<div class="mermaid">${mermaidCode}</div>`);
           } else {
-            html.push('</code></pre>');
+            // コードバッファを結合して一度に出力
+            html.push(`<pre><code class="language-${codeLang}">${codeBuffer.join('\n')}</code></pre>`);
           }
           codeBuffer = [];
           inCodeBlock = false;
+          codeLang = '';
         } else {
           codeLang = line.slice(3).trim() || 'text';
-          if (codeLang !== 'mermaid') {
-            html.push(`<pre><code class="language-${codeLang}">`);
-          }
           inCodeBlock = true;
         }
         continue;
@@ -178,8 +179,7 @@ const MarkdownParser = {
         if (codeLang === 'mermaid') {
           codeBuffer.push(line);
         } else {
-          html.push(this.escapeHtml(line));
-          html.push('\n');
+          codeBuffer.push(this.escapeHtml(line));
         }
         continue;
       }
@@ -331,7 +331,9 @@ const MarkdownParser = {
     
     // 閉じタグの処理
     if (inList) html.push(inList === 'ol' ? '</ol>' : '</ul>');
-    if (inCodeBlock) html.push('</code></pre>');
+    if (inCodeBlock) {
+      html.push(`<pre><code class="language-${codeLang || 'text'}">${codeBuffer.join('\n')}</code></pre>`);
+    }
     if (tableRows.length > 0) html.push(this.parseTable(tableRows));
     if (blockquoteBuffer.length > 0) {
       const content = blockquoteBuffer.filter(l => l).map(l => this.parseInline(l)).join('<br>');

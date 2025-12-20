@@ -110,18 +110,22 @@ body {
 }
 
 .mode-indicator { display: flex; gap: 1rem; font-size: 0.9rem; align-items: center; }
-#vim-mode { background: var(--accent-green); color: var(--bg-primary); padding: 0.2rem 0.6rem; border-radius: 3px; font-weight: bold; min-width: 80px; text-align: center; }
-#vim-mode.insert { background: var(--accent); }
-#vim-mode.visual { background: var(--accent-yellow); color: #1e1e2e; }
-#vim-mode.command { background: var(--accent-red); }
-#vim-mode.recording { background: var(--accent-purple); }
+#vim-mode { color: var(--accent-green); padding: 0.2rem 0.4rem; font-weight: bold; min-width: 60px; text-align: center; font-size: 0.85rem; }
+#vim-mode.insert { color: var(--accent); }
+#vim-mode.visual { color: var(--accent-yellow); }
+#vim-mode.command { color: var(--accent-red); }
+#vim-mode.recording { color: var(--accent-purple); }
+#vim-mode.edit-mode { color: var(--text-secondary); }
+#btn-vim-mode { min-width: 50px; }
+#btn-vim-mode.active { background: var(--accent-green); color: var(--bg-primary); }
 #cursor-pos { color: var(--text-secondary); }
 #macro-indicator { color: var(--accent-purple); font-weight: bold; display: none; }
 #macro-indicator.active { display: inline; }
 
 #main-container { flex: 1; display: flex; overflow: hidden; }
 .pane { flex: 1; display: flex; overflow: hidden; position: relative; }
-#editor-pane { border-right: 1px solid var(--border); }
+#editor-pane { border-right: 1px solid var(--border); flex-direction: column; }
+#editor-content { display: flex; flex: 1; overflow: hidden; }
 
 #line-numbers {
   min-width: 3rem;
@@ -229,8 +233,8 @@ body {
 #preview-content ul, #preview-content ol { margin: 0.5rem 0; padding-left: 1.5rem; }
 #preview-content li { margin: 0.3rem 0; }
 #preview-content code { background: var(--bg-secondary); padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
-#preview-content pre { background: var(--bg-secondary); padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 0.8rem 0; }
-#preview-content pre code { background: none; padding: 0; }
+#preview-content pre { background: var(--bg-secondary); padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 0.8rem 0; line-height: 1.4; }
+#preview-content pre code { background: none; padding: 0; line-height: 1.4; display: block; }
 #preview-content blockquote { border-left: 4px solid var(--accent); padding-left: 1rem; margin: 0.8rem 0; color: var(--text-secondary); font-style: italic; }
 #preview-content hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 #preview-content a { color: var(--accent); text-decoration: none; }
@@ -460,6 +464,62 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
   background: var(--accent);
   color: var(--bg-primary);
   border-color: var(--accent);
+}
+
+/* エディタコントロールバー */
+#editor-controls {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  align-items: center;
+}
+
+#editor-controls button {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#editor-controls button:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+#editor-controls button.active {
+  background: var(--accent-green);
+  color: var(--bg-primary);
+  border-color: var(--accent-green);
+}
+
+#editor-controls #vim-mode {
+  /* モード表示 */
+}
+
+#editor-controls #cursor-pos {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-right: auto;
+}
+
+#editor-controls #macro-indicator {
+  color: var(--accent-red);
+  font-weight: bold;
+  font-size: 0.8rem;
+  display: none;
+}
+
+#editor-controls #macro-indicator.active {
+  display: inline;
+  animation: blink 1s infinite;
 }
 
 /* 目次パネル */

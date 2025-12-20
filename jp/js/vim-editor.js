@@ -5,6 +5,7 @@
 
 const VimEditor = {
   mode: 'normal',
+  vimMode: false,              // VIMモード有効/無効（デフォルト: 無効）
   register: '',
   searchTerm: '',
   undoStack: [],
@@ -70,6 +71,10 @@ const VimEditor = {
     this.fontSize = parseInt(localStorage.getItem('vim-md-font-size')) || 100;
     this.applyFontSize();
     
+    // VIMモード設定を読み込み
+    this.vimMode = localStorage.getItem('vim-md-vim-mode') === 'true';
+    this.updateVimModeUI();
+    
     // ファイル入力のイベント
     this.fileInput.addEventListener('change', e => this.handleFileOpen(e));
     
@@ -93,6 +98,15 @@ const VimEditor = {
     this.updateHeadingHighlight();
     this.saveState();
     this.updateCursorOverlay();
+    
+    // NOVIMモードの場合、editableな状態に設定
+    if (!this.vimMode) {
+      this.mode = 'insert';
+      this.editor.readOnly = false;
+      this.editor.classList.add('insert-mode');  // カーソルを表示
+    }
+    
+    this.editor.focus();
     this.initialized = true;
   },
   
@@ -117,19 +131,34 @@ const VimEditor = {
   },
   
   loadFromStorage() {
-    // まずセッション固有の内容を探す
+    // まずセッション固有の内容を探す（タブ復帰時）
     const sessionContent = sessionStorage.getItem('vim-md-content-' + this.sessionId);
     if (sessionContent) {
       this.editor.value = sessionContent;
+      // ファイル名はlocalStorageから復元
+      const savedFilename = localStorage.getItem('vim-md-filename');
+      if (savedFilename) {
+        this.currentFileName = savedFilename;
+        this.fileName.textContent = savedFilename;
+      }
+      this.showStatus('前回のセッションを復元しました');
       return;
     }
     
-    // なければ従来のlocalStorageから読み込み（初回起動時）
+    // localStorageから読み込み（通常の起動時）
     const saved = localStorage.getItem('vim-md-content');
+    const savedFilename = localStorage.getItem('vim-md-filename');
+    
     if (saved) {
       this.editor.value = saved;
+      if (savedFilename) {
+        this.currentFileName = savedFilename;
+        this.fileName.textContent = savedFilename;
+      }
+      this.showStatus('前回の内容を復元しました');
     } else {
-      this.editor.value = `# mdvim v0.1 へようこそ！
+      // 初回起動時のデフォルト内容
+      this.editor.value = `# mdvim v0.2 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -223,6 +252,77 @@ graph LR
   },
   
   handleKeydown(e) {
+    // NOVIMモードの場合 - シンプルに処理
+    if (this.vimMode !== true) {
+      // Ctrl+キーのショートカット
+      if (e.ctrlKey) {
+        switch (e.key.toLowerCase()) {
+          case 's':
+            e.preventDefault();
+            this.downloadFile(this.currentFileName || '無題');
+            return;
+          case 'o':
+            e.preventDefault();
+            this.openFileDialog(false);
+            return;
+          case 'a':
+            e.preventDefault();
+            const filename = prompt('ファイル名を入力してください:', this.currentFileName || '無題.md');
+            if (filename) {
+              this.downloadFile(filename);
+            }
+            return;
+          case 'n':
+            e.preventDefault();
+            if (this.modified) {
+              if (confirm('変更が保存されていません。新規作成しますか？')) {
+                this.newFile();
+              }
+            } else {
+              this.newFile();
+            }
+            return;
+        }
+        // その他のCtrl+キーはブラウザのデフォルト動作（Ctrl+Z, Ctrl+C等）
+        return;
+      }
+      
+      // ?キー（ヘルプ）
+      if (e.key === '?' && !e.altKey) {
+        e.preventDefault();
+        toggleHelp();
+        return;
+      }
+      
+      // :キー（コマンドモード）
+      if (e.key === ':' && !e.altKey) {
+        e.preventDefault();
+        this.enterCommandMode();
+        return;
+      }
+      
+      // Tabキー
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        this.handleTab(e.shiftKey);
+        return;
+      }
+      
+      // Escapeキー
+      if (e.key === 'Escape') {
+        if (!this.commandLine.classList.contains('hidden')) {
+          this.commandLine.classList.add('hidden');
+          this.editor.focus();
+        }
+        return;
+      }
+      
+      // その他全てのキー（矢印キー含む）はデフォルト動作を許可
+      return;
+    }
+    
+    // 以下はVIMモード（this.vimMode === true）の処理
+    
     // Ctrl+[ をESCとして扱う
     if (e.ctrlKey && e.key === '[') {
       e.preventDefault();
@@ -1175,6 +1275,10 @@ graph LR
           this.lineNumbers.style.display = 'block';
         } else if (parts[1] === 'nonu' || parts[1] === 'nonumber') {
           this.lineNumbers.style.display = 'none';
+        } else if (parts[1] === 'vim') {
+          this.setVimMode(true);
+        } else if (parts[1] === 'novim') {
+          this.setVimMode(false);
         } else if (parts[1] && parts[1].startsWith('theme=')) {
           const theme = parts[1].split('=')[1];
           if (['dark', 'light', 'original'].includes(theme)) {
@@ -2097,16 +2201,21 @@ graph LR
   save() {
     // セッション固有の保存
     sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
-    // 全体の保存（最後に明示的に保存した内容）
+    // ローカルストレージに保存
     localStorage.setItem('vim-md-content', this.editor.value);
+    localStorage.setItem('vim-md-filename', this.currentFileName || '無題');
     this.modified = false;
     this.updateFileStatus();
     this.showStatus('保存しました');
   },
   
-  // セッションへの自動保存（タブ固有）
+  // 自動保存（セッション＋ローカルストレージ）
   autoSave() {
+    // セッション固有の保存（タブごと）
     sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
+    // ローカルストレージに自動保存（次回起動時用）
+    localStorage.setItem('vim-md-content', this.editor.value);
+    localStorage.setItem('vim-md-filename', this.currentFileName || '無題');
   },
   
   // ダイアログで保存
@@ -2199,13 +2308,15 @@ graph LR
     this.undoStack = [];
     this.redoStack = [];
     this.editor.value = '';
-    this.fileName.textContent = 'Untitled';
-    this.currentFileName = 'Untitled';
+    this.fileName.textContent = '無題';
+    this.currentFileName = '無題';
     this.currentFileHandle = null;
     this.modified = false;
     this.updateFileStatus();
     this.updateLineNumbers();
     this.updatePreview();
+    this.updateToc();  // 目次更新
+    this.updateHeadingHighlight();  // 見出しハイライト更新
     this.editor.selectionStart = 0;
     this.editor.selectionEnd = 0;
     this.updateCursorPos();
@@ -2256,6 +2367,7 @@ graph LR
         // カーソル位置に挿入
         this.saveState();
         this.insertText(content);
+        this.updateToc();  // 目次更新
         this.showStatus(`"${file.name}" を挿入しました`);
       } else {
         // ファイル全体を置き換え
@@ -2268,6 +2380,8 @@ graph LR
         this.updateFileStatus();
         this.updateLineNumbers();
         this.updatePreview();
+        this.updateToc();  // 目次更新
+        this.updateHeadingHighlight();  // 見出しハイライト更新
         this.editor.selectionStart = 0;
         this.editor.selectionEnd = 0;
         this.updateCursorPos();
@@ -2291,9 +2405,12 @@ graph LR
   // UI
   setMode(mode) {
     this.mode = mode;
-    this.modeIndicator.textContent = mode.toUpperCase();
-    this.modeIndicator.className = mode;
-    if (this.recordingMacro) this.modeIndicator.classList.add('recording');
+    if (this.vimMode) {
+      this.modeIndicator.textContent = mode.toUpperCase();
+      this.modeIndicator.className = mode;
+      this.modeIndicator.style.opacity = '';
+      if (this.recordingMacro) this.modeIndicator.classList.add('recording');
+    }
     
     if (mode === 'command') {
       this.commandLine.classList.remove('hidden');
@@ -2303,7 +2420,12 @@ graph LR
       this.editor.focus();
     }
     
-    this.editor.readOnly = (mode !== 'insert');
+    // VIMモードの場合のみreadOnlyを制御
+    if (this.vimMode) {
+      this.editor.readOnly = (mode !== 'insert');
+    } else {
+      this.editor.readOnly = false;
+    }
     
     // カーソル表示の更新
     if (mode === 'insert') {
@@ -2351,6 +2473,12 @@ graph LR
   
   updateCursorOverlay() {
     if (!this.cursorOverlay) return;
+    
+    // NOVIMモードではカーソルオーバーレイを非表示
+    if (!this.vimMode) {
+      this.cursorOverlay.style.display = 'none';
+      return;
+    }
     
     const text = this.editor.value;
     const pos = this.editor.selectionStart;
@@ -2400,6 +2528,21 @@ graph LR
   },
   
   updateFileStatus() { this.fileStatus.textContent = this.modified ? '[+]' : ''; },
+  
+  // ステータスメッセージを表示
+  showStatus(message, duration = 2000) {
+    const helpHint = document.getElementById('help-hint');
+    if (helpHint) {
+      const originalText = '? でヘルプを表示';
+      helpHint.textContent = message;
+      if (this.statusTimeout) {
+        clearTimeout(this.statusTimeout);
+      }
+      this.statusTimeout = setTimeout(() => {
+        helpHint.textContent = originalText;
+      }, duration);
+    }
+  },
   
   updateLineNumbers() {
     const lines = this.editor.value.split('\n');
@@ -2530,6 +2673,61 @@ graph LR
       this.applyFontSize();
       localStorage.setItem('vim-md-font-size', this.fontSize);
     }
+  },
+  
+  // VIMモードを設定
+  setVimMode(enabled) {
+    this.vimMode = enabled;
+    localStorage.setItem('vim-md-vim-mode', enabled);
+    if (enabled) {
+      this.mode = 'normal';
+      this.editor.classList.remove('insert-mode');
+      this.showStatus('VIMモードを有効化');
+    } else {
+      this.mode = 'insert';
+      this.editor.classList.add('insert-mode');
+      this.showStatus('通常編集モード');
+    }
+    this.updateVimModeUI();
+    this.updateCursorOverlay();  // カーソルオーバーレイを更新
+    this.editor.focus();
+  },
+  
+  // VIMモードUIを更新
+  updateVimModeUI() {
+    const btn = document.getElementById('btn-vim-mode');
+    if (btn) {
+      btn.textContent = this.vimMode ? 'VIM' : 'NOVIM';
+      btn.classList.toggle('active', this.vimMode);
+    }
+    if (this.modeIndicator) {
+      if (this.vimMode) {
+        this.modeIndicator.textContent = this.mode.toUpperCase();
+        this.modeIndicator.className = this.mode;
+      } else {
+        this.modeIndicator.textContent = 'EDIT';
+        this.modeIndicator.className = 'edit-mode';
+      }
+    }
+    // NOVIMモードではreadOnlyを常にfalseに、カーソルを表示
+    if (this.editor) {
+      if (this.vimMode) {
+        this.editor.readOnly = (this.mode !== 'insert');
+        if (this.mode === 'insert') {
+          this.editor.classList.add('insert-mode');
+        } else {
+          this.editor.classList.remove('insert-mode');
+        }
+      } else {
+        this.editor.readOnly = false;
+        this.editor.classList.add('insert-mode');  // NOVIMモードでは常にカーソル表示
+      }
+    }
+  },
+  
+  // VIMモードをトグル
+  toggleVimMode() {
+    this.setVimMode(!this.vimMode);
   },
   
   // 目次の開閉
@@ -2909,12 +3107,5 @@ graph LR
     } else if (cursorTop > visibleBottom - lineHeight * 2) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight * 3 / 4;
     }
-  },
-  
-  showStatus(msg) {
-    const status = document.getElementById('help-hint');
-    status.textContent = msg;
-    setTimeout(() => { status.textContent = '? でヘルプ'; }, 2500);
   }
 };
-

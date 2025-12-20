@@ -1,107 +1,174 @@
-# mdvim v0.1
+<p align="center">
+  <h1 align="center">📝 mdvim</h1>
+  <p align="center">
+    <strong>Vim-style Markdown Editor in the Browser</strong>
+  </p>
+  <p align="center">
+    <a href="#features">Features</a> •
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#vim-keybindings">Keybindings</a> •
+    <a href="#markdown-support">Markdown</a> •
+    <a href="#license">License</a>
+  </p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/version-0.2-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
+    <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
+    <img src="https://img.shields.io/badge/no%20install-required-brightgreen.svg" alt="No Install">
+  </p>
+</p>
 
-A powerful Vim-style Markdown editor running entirely in the browser. No installation required - just open the HTML file and start editing.
+---
 
-![mdvim screenshot](screenshot.png)
+A powerful, fully-featured Vim-style Markdown editor that runs entirely in your browser. No installation, no server, no build step required — just open the HTML file and start editing.
 
 ## ✨ Features
 
-### 🎹 Vim Operations
+<table>
+<tr>
+<td width="50%">
 
-mdvim implements a comprehensive subset of Vim keybindings for efficient text editing.
+### 🎹 Vim Keybindings
+- Full modal editing (Normal, Insert, Visual, Command)
+- Motion commands (`hjkl`, `w`, `b`, `e`, `0`, `$`, `gg`, `G`)
+- Text objects (`diw`, `ci"`, `da(`, etc.)
+- Operators (`d`, `c`, `y`, `p`)
+- Macros (`q`, `@`)
+- Marks (`m`, `'`)
+- Search & Replace (`/`, `:%s`)
 
-#### Modes
-| Mode | How to Enter | Description |
-|------|--------------|-------------|
-| **Normal** | `Esc` or `Ctrl+[` | Default mode for navigation and commands |
-| **Insert** | `i`, `a`, `o`, etc. | Text input mode |
-| **Visual** | `v` | Character-wise selection |
-| **Visual Line** | `V` | Line-wise selection |
-| **Command** | `:` | Ex commands (save, open, replace, etc.) |
+</td>
+<td width="50%">
 
-#### Movement Commands
+### 📝 Rich Markdown
+- Real-time preview with sync scroll
+- **LaTeX math** via KaTeX
+- **Diagrams** via Mermaid
+- **Syntax highlighting** (180+ languages)
+- Tables, task lists, emoji
+- GitHub Alerts & Qiita notes
+- Collapsible sections
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 🆕 NOVIM Mode (v0.2)
+- Standard editing without Vim bindings
+- Familiar shortcuts (`Ctrl+S`, `Ctrl+O`, etc.)
+- Arrow keys, Home/End, Page Up/Down
+- Perfect for Vim beginners
+
+</td>
+<td>
+
+### 🎨 Customization
+- 3 themes (Dark, Light, Retro CRT)
+- Adjustable font size (50%-200%)
+- Table of Contents sidebar
+- Heading fold/unfold
+- Split/Edit/Preview modes
+
+</td>
+</tr>
+</table>
+
+## 🚀 Quick Start
+
+### Option 1: Download and Open
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/mdvim.git
+
+# Open in browser
+open mdvim/mdvim.html        # English
+open mdvim/mdvim-jp.html     # Japanese
+```
+
+### Option 2: Direct Download
+1. Download `mdvim.html` (or `mdvim-jp.html` for Japanese)
+2. Open in your browser
+3. Start editing!
+
+### Basic Usage
+
+| Mode | VIM Mode | NOVIM Mode |
+|------|----------|------------|
+| **Start editing** | Press `i` | Just type |
+| **Save** | Type `:w` | Press `Ctrl+S` |
+| **Open file** | Type `:e` | Press `Ctrl+O` |
+| **Help** | Press `?` | Press `?` |
+
+## 🎹 Vim Keybindings
+
+<details>
+<summary><strong>📍 Movement</strong></summary>
+
 | Key | Action |
 |-----|--------|
 | `h` `j` `k` `l` | Left, Down, Up, Right |
 | `w` / `b` | Next / Previous word |
 | `e` | End of word |
-| `0` / `$` | Beginning / End of line |
-| `^` | First non-whitespace character |
-| `gg` / `G` | Beginning / End of file |
-| `{number}G` | Go to line number |
+| `0` / `$` | Start / End of line |
+| `^` | First non-blank character |
+| `gg` / `G` | Start / End of file |
+| `{n}G` | Go to line n |
 | `{` / `}` | Previous / Next paragraph |
-| `Ctrl+f` / `Ctrl+b` | Page down / Page up |
-| `Ctrl+d` / `Ctrl+u` | Half page down / Half page up |
-| `%` | Jump to matching bracket |
+| `Ctrl+f` / `Ctrl+b` | Page Down / Up |
+| `Ctrl+d` / `Ctrl+u` | Half Page Down / Up |
+| `%` | Matching bracket |
+| `f{c}` / `F{c}` | Find char forward / backward |
+| `t{c}` / `T{c}` | Till char forward / backward |
 
-#### In-line Search
+</details>
+
+<details>
+<summary><strong>✏️ Editing</strong></summary>
+
 | Key | Action |
 |-----|--------|
-| `f{char}` | Find next {char} in line |
-| `F{char}` | Find previous {char} in line |
-| `t{char}` | Till next {char} (cursor before) |
-| `T{char}` | Till previous {char} |
-| `;` | Repeat last f/F/t/T |
-| `,` | Repeat last f/F/t/T in reverse |
-
-#### Editing Commands
-| Key | Action |
-|-----|--------|
-| `x` / `X` | Delete character under / before cursor |
-| `dd` | Delete entire line |
-| `dw` | Delete word |
-| `d$` or `D` | Delete to end of line |
-| `d{motion}` | Delete with motion |
-| `cc` | Change entire line |
+| `i` / `a` | Insert before / after cursor |
+| `I` / `A` | Insert at line start / end |
+| `o` / `O` | New line below / above |
+| `x` / `X` | Delete char under / before cursor |
+| `dd` | Delete line |
+| `dw` / `d$` / `D` | Delete word / to end of line |
+| `cc` / `C` | Change line / to end of line |
 | `cw` | Change word |
-| `c$` or `C` | Change to end of line |
-| `c{motion}` | Change with motion |
-| `yy` or `Y` | Yank (copy) entire line |
-| `yw` | Yank word |
-| `y{motion}` | Yank with motion |
-| `p` / `P` | Paste after / before cursor |
-| `u` | Undo |
-| `Ctrl+r` | Redo |
+| `yy` / `Y` | Yank (copy) line |
+| `p` / `P` | Paste after / before |
+| `u` / `Ctrl+r` | Undo / Redo |
 | `.` | Repeat last edit |
-| `~` | Toggle case of character |
+| `~` | Toggle case |
 | `J` | Join lines |
-| `r{char}` | Replace single character |
-| `>>` / `<<` | Indent / Unindent line |
+| `r{c}` | Replace with char |
+| `>>` / `<<` | Indent / Unindent |
 
-#### Text Objects
-Text objects allow precise selection of text structures:
+</details>
+
+<details>
+<summary><strong>🎯 Text Objects</strong></summary>
+
+Use with `d` (delete), `c` (change), `y` (yank), or `v` (visual):
 
 | Key | Action |
 |-----|--------|
-| `diw` / `daw` | Delete inner/around word |
-| `ciw` / `caw` | Change inner/around word |
-| `yiw` / `yaw` | Yank inner/around word |
-| `di"` / `da"` | Delete inner/around double quotes |
-| `di'` / `da'` | Delete inner/around single quotes |
-| `di(` / `da(` | Delete inner/around parentheses |
-| `di[` / `da[` | Delete inner/around brackets |
-| `di{` / `da{` | Delete inner/around braces |
-| `` di` `` / `` da` `` | Delete inner/around backticks |
+| `iw` / `aw` | Inner / Around word |
+| `i"` / `a"` | Inner / Around double quotes |
+| `i'` / `a'` | Inner / Around single quotes |
+| `i(` / `a(` | Inner / Around parentheses |
+| `i[` / `a[` | Inner / Around brackets |
+| `i{` / `a{` | Inner / Around braces |
+| `` i` `` / `` a` `` | Inner / Around backticks |
 
-#### Marks
-| Key | Action |
-|-----|--------|
-| `m{a-z}` | Set mark at current position |
-| `'{a-z}` | Jump to mark (line beginning) |
-| `` `{a-z} `` | Jump to mark (exact position) |
-| `''` | Jump to previous position |
-| `:marks` | List all marks |
+**Examples:** `diw` (delete word), `ci"` (change inside quotes), `ya(` (yank around parens)
 
-#### Macros
-| Key | Action |
-|-----|--------|
-| `q{a-z}` | Start recording macro |
-| `q` | Stop recording |
-| `@{a-z}` | Play macro |
-| `@@` | Replay last macro |
-| `{n}@{a-z}` | Play macro n times |
+</details>
 
-#### Search and Replace
+<details>
+<summary><strong>🔍 Search & Replace</strong></summary>
+
 | Command | Action |
 |---------|--------|
 | `/{pattern}` | Search forward |
@@ -110,311 +177,220 @@ Text objects allow precise selection of text structures:
 | `:s/old/new/` | Replace first in line |
 | `:s/old/new/g` | Replace all in line |
 | `:%s/old/new/g` | Replace all in file |
-| `:{n},{m}s/old/new/g` | Replace in line range |
+| `:{n},{m}s/old/new/g` | Replace in range |
 
----
+</details>
 
-### 📝 Markdown Preview
+<details>
+<summary><strong>📌 Marks & Macros</strong></summary>
 
-#### Real-time Preview
-- Split view with editor on left, preview on right
-- Preview updates as you type
-- Synchronized scrolling between editor and preview
+| Key | Action |
+|-----|--------|
+| `m{a-z}` | Set mark |
+| `'{a-z}` | Jump to mark (line) |
+| `` `{a-z} `` | Jump to mark (exact) |
+| `''` | Jump to previous position |
+| `q{a-z}` | Start recording macro |
+| `q` | Stop recording |
+| `@{a-z}` | Play macro |
+| `@@` | Replay last macro |
+| `{n}@{a-z}` | Play macro n times |
 
-#### Table of Contents
-- Auto-generated from headings (H1-H6)
-- Click to navigate to section
-- Collapsible sidebar panel
-- Shows document structure at a glance
+</details>
 
-#### Heading Fold
-- Click any heading in preview to fold/unfold its content
-- "Collapse All" / "Expand All" buttons
-- Folds content until next heading of same or higher level
+<details>
+<summary><strong>💾 File Commands</strong></summary>
 
----
+| Command | Action |
+|---------|--------|
+| `:w` | Save (File System API or download) |
+| `:w {name}` | Save with filename |
+| `:e` | Open file dialog |
+| `:e {name}` | Open/create file |
+| `:r` | Insert file at cursor |
+| `:new` | New file |
+| `:q` | Quit (warns if unsaved) |
+| `:q!` | Force quit |
+| `:wq` | Save and quit |
 
-### 📊 Extended Markdown Syntax
+</details>
 
-#### Tables
-```markdown
-| Left | Center | Right |
-|:-----|:------:|------:|
-| L    |   C    |     R |
-| 1    |   2    |     3 |
-```
+## 📊 Markdown Support
 
-#### Math (LaTeX via KaTeX)
+### Standard Markdown
+Headers, bold, italic, links, images, lists, blockquotes, code blocks, horizontal rules
 
-Inline math:
-```markdown
-The equation $E = mc^2$ changed physics.
-```
+### Extended Features
 
-Block math:
-```markdown
+<details>
+<summary><strong>📐 Math (KaTeX)</strong></summary>
+
+Inline: `$E = mc^2$` → $E = mc^2$
+
+Block:
+```latex
 $$
 \int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
 $$
 ```
 
-Supported notation:
-- Fractions: `\frac{a}{b}`
-- Square roots: `\sqrt{x}`, `\sqrt[n]{x}`
-- Superscripts/subscripts: `x^2`, `x_i`, `x_{i,j}`
-- Greek letters: `\alpha`, `\beta`, `\gamma`, `\pi`, `\omega`
-- Summation: `\sum_{i=0}^{n} x_i`
-- Integration: `\int_{a}^{b} f(x) dx`
-- Limits: `\lim_{x \to \infty}`
-- Matrices, vectors, and more
+</details>
 
-#### Mermaid Diagrams
+<details>
+<summary><strong>📊 Diagrams (Mermaid)</strong></summary>
 
-Flowchart:
 ````markdown
 ```mermaid
 graph TD
     A[Start] --> B{Decision}
-    B -->|Yes| C[Action 1]
-    B -->|No| D[Action 2]
-    C --> E[End]
-    D --> E
+    B -->|Yes| C[Action]
+    B -->|No| D[End]
 ```
 ````
 
-Sequence Diagram:
-````markdown
-```mermaid
-sequenceDiagram
-    Alice->>Bob: Hello Bob
-    Bob-->>Alice: Hi Alice
-```
-````
+Supports: flowchart, sequence, class, state, ER, gantt, pie charts
 
-Other supported diagrams:
-- `classDiagram` - Class diagrams
-- `gantt` - Gantt charts
-- `pie` - Pie charts
-- `erDiagram` - ER diagrams
-- `stateDiagram-v2` - State diagrams
+</details>
 
-#### Syntax Highlighting
+<details>
+<summary><strong>💻 Code (highlight.js)</strong></summary>
 
-Code blocks with language specification:
 ````markdown
 ```javascript
-function greet(name) {
+function hello(name) {
   console.log(`Hello, ${name}!`);
 }
 ```
 ````
 
-Supports 180+ languages via highlight.js.
+180+ languages supported
 
-#### Task Lists
+</details>
+
+<details>
+<summary><strong>📋 Other Features</strong></summary>
+
+**Tables:**
 ```markdown
-- [x] Completed task
-- [ ] Pending task
-- [x] Another done task
+| Left | Center | Right |
+|:-----|:------:|------:|
+| A    |   B    |     C |
 ```
 
-#### GitHub Alerts
+**Task Lists:**
+```markdown
+- [x] Completed
+- [ ] Pending
+```
+
+**GitHub Alerts:**
 ```markdown
 > [!NOTE]
-> Useful information that users should know.
-
-> [!TIP]
-> Helpful advice for doing things better.
-
-> [!IMPORTANT]
-> Key information users need to know.
+> Information
 
 > [!WARNING]
-> Urgent info that needs immediate attention.
-
-> [!CAUTION]
-> Advises about risks or negative outcomes.
+> Warning message
 ```
 
-#### Qiita Note Syntax
-```markdown
-:::note info
-This is an information note.
-Supports multiple lines.
-:::
+**Emoji:** `:smile:` → 😄, `:rocket:` → 🚀
 
-:::note warn
-This is a warning note.
-:::
-
-:::note alert
-This is an alert note.
-:::
-```
-
-#### Collapsible Sections
+**Collapsible:**
 ```markdown
 :::details Click to expand
-Hidden content here.
-
-- Supports **Markdown** inside
-- Lists work too
+Hidden content
 :::
 ```
 
-#### Emoji Shortcodes
-```markdown
-:smile: :rocket: :star: :+1: :heart:
-:warning: :bulb: :memo: :fire: :tada:
-```
+</details>
 
-Result: 😄 🚀 ⭐ 👍 ❤️ ⚠️ 💡 📝 🔥 🎉
+## 🎨 Themes
 
-#### Auto-linking URLs
-URLs are automatically converted to clickable links:
-```markdown
-Check out https://example.com for more info.
-```
-
----
-
-### 💾 File Operations
-
-| Command | Action |
-|---------|--------|
-| `:w` | Open save dialog (File System Access API) |
-| `:w filename.md` | Download with specified filename |
-| `:e` | Open file dialog |
-| `:e!` | Force open (discard changes) |
-| `:r` | Insert file at cursor position |
-| `:new` | Create new file |
-| `:new!` | Force new file (discard changes) |
-| `:q` | Quit (warns if unsaved) |
-| `:q!` | Force quit (discard changes) |
-| `:wq` | Save and quit |
-| `:ls` | Save to localStorage |
-
-#### Auto-save
-- Content auto-saves to sessionStorage every second
-- Each browser tab has independent storage
-- Explicit `:w` saves to localStorage (persists across sessions)
-- Last `:w` content loads when opening new tabs
-
----
-
-### 🎨 UI Features
-
-#### Themes
-Three built-in themes:
 | Theme | Description |
 |-------|-------------|
-| 🌙 Dark | Dark background, easy on eyes (default) |
-| ☀️ Light | Light background, high contrast |
-| 💻 Original | CRT-style retro green-on-black |
+| 🌙 **Dark** | Dark background (default) |
+| ☀️ **Light** | Light background |
+| 💻 **Original** | Retro CRT green-on-black |
 
-Change via toolbar buttons or `:theme dark|light|original`
-
-#### Font Size
-- **A-** / **A+** buttons in toolbar
-- Range: 50% - 200%
-- Persists across sessions
-
-#### View Modes
-| Mode | Description |
-|------|-------------|
-| Edit | Editor only |
-| Preview | Preview only |
-| Split | Side-by-side (default) |
-
-#### Status Bar
-Shows:
-- Current filename
-- Modified indicator (*)
-- Help hint
-
-#### Mode Indicator
-Shows:
-- Current Vim mode (NORMAL/INSERT/VISUAL/COMMAND)
-- Macro recording indicator (●REC)
-- Cursor position (line:column)
-
----
-
-## 🚀 Quick Start
-
-1. **Open** `mdvim.html` (English) or `mdvim-jp.html` (Japanese) in your browser
-2. **Press `i`** to enter insert mode
-3. **Type** your Markdown content
-4. **Press `Esc`** to return to normal mode
-5. **Press `?`** for help at any time
-6. **Type `:w`** to save your work
+Change via toolbar or `:theme dark|light|original`
 
 ## 🌐 Browser Support
 
-| Browser | Support | Notes |
-|---------|---------|-------|
+| Browser | Status | Notes |
+|---------|--------|-------|
 | Chrome 86+ | ✅ Full | Recommended (File System Access API) |
-| Edge 86+ | ✅ Full | Recommended (File System Access API) |
-| Firefox | ✅ Good | Falls back to download for save |
-| Safari | ✅ Good | Falls back to download for save |
+| Edge 86+ | ✅ Full | Recommended |
+| Firefox | ✅ Good | Download fallback for save |
+| Safari | ✅ Good | Download fallback for save |
 
-## 📦 Dependencies (CDN)
-
-All dependencies are loaded from CDN - no build step required:
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| [KaTeX](https://katex.org/) | 0.16.9 | LaTeX math rendering |
-| [Mermaid](https://mermaid.js.org/) | 10.x | Diagram rendering |
-| [highlight.js](https://highlightjs.org/) | 11.9.0 | Syntax highlighting |
-
-## 📁 File Structure
+## 📁 Project Structure
 
 ```
 mdvim/
+├── mdvim.html          # English (single file, ~145KB)
+├── mdvim-jp.html       # Japanese (single file, ~145KB)
 ├── README.md           # English documentation
 ├── README-jp.md        # Japanese documentation
-├── mdvim.html          # English version (single file, ~140KB)
-├── mdvim-jp.html       # Japanese version (single file, ~140KB)
-├── en/                 # English version (modular)
-│   ├── index.html      # Main HTML
-│   ├── css/
-│   │   └── style.css   # Styles (~12KB)
+├── en/                 # English (modular)
+│   ├── index.html
+│   ├── css/style.css
 │   └── js/
-│       ├── app.js      # App initialization (~2KB)
-│       ├── markdown-parser.js  # MD→HTML parser (~15KB)
-│       └── vim-editor.js       # Vim implementation (~90KB)
-└── jp/                 # Japanese version (modular)
-    ├── index.html
-    ├── css/
-    │   └── style.css
-    └── js/
-        ├── app.js
-        ├── markdown-parser.js
-        └── vim-editor.js
+│       ├── app.js
+│       ├── vim-editor.js
+│       └── markdown-parser.js
+└── jp/                 # Japanese (modular)
+    └── ...
 ```
 
 ### Single File vs Modular
 
-| Version | Pros | Cons |
-|---------|------|------|
-| **Single file** (`mdvim.html`) | Easy to share, works offline | Harder to customize |
-| **Modular** (`en/`, `jp/`) | Easy to modify, better organization | Multiple files to manage |
+| Version | Use Case |
+|---------|----------|
+| **Single file** | Easy sharing, offline use, USB portable |
+| **Modular** | Development, customization |
 
-## ⌨️ Complete Keybinding Reference
+## 📦 Dependencies
 
-Press `?` in the editor to see the full keybinding help.
+All loaded via CDN (no build required):
+
+- [KaTeX](https://katex.org/) v0.16.9 — LaTeX rendering
+- [Mermaid](https://mermaid.js.org/) v10.x — Diagrams
+- [highlight.js](https://highlightjs.org/) v11.9.0 — Syntax highlighting
+
+## 📝 Changelog
+
+### v0.2
+- ✨ Added NOVIM mode for standard editing
+- ⌨️ Added shortcuts in NOVIM mode (Ctrl+O/S/A/N)
+- 🐛 Fixed TOC auto-update on file open
+- 🎨 Improved cursor display and mode switching
+- 💬 Added status message display
+
+### v0.1
+- 🎉 Initial release
+- Full Vim keybinding support
+- Markdown preview with math, diagrams, syntax highlighting
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-MIT License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Vim for the inspiration
-- KaTeX, Mermaid, and highlight.js teams
-- The Markdown community
+- [Vim](https://www.vim.org/) for the inspiration
+- [KaTeX](https://katex.org/), [Mermaid](https://mermaid.js.org/), [highlight.js](https://highlightjs.org/) teams
 
 ---
 
-**mdvim** - Edit Markdown the Vim way! 🚀
+<p align="center">
+  <strong>mdvim</strong> — Edit Markdown the Vim way! 🚀
+</p>

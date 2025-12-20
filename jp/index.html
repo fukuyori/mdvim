@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.1 - Vim風マークダウンエディタ</title>
+  <title>mdvim v0.2 - Vim風マークダウンエディタ</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -13,7 +13,7 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.1</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2</span></div>
     <div class="view-controls">
       <button id="btn-edit" class="active" onclick="setViewMode('edit')">編集</button>
       <button id="btn-preview" onclick="setViewMode('preview')">プレビュー</button>
@@ -27,11 +27,6 @@
       <span id="font-size-display">100%</span>
       <button onclick="VimEditor.increaseFontSize()" title="文字を大きく">A+</button>
     </div>
-    <div class="mode-indicator">
-      <span id="vim-mode">NORMAL</span>
-      <span id="macro-indicator">●REC</span>
-      <span id="cursor-pos">1:1</span>
-    </div>
   </header>
   
   <main id="main-container" class="split-view">
@@ -44,10 +39,18 @@
     </div>
     <button id="toc-open-btn" class="hidden" onclick="VimEditor.toggleToc()" title="目次を開く">▶</button>
     <div id="editor-pane" class="pane">
-      <div id="line-numbers"></div>
-      <div id="editor-wrapper">
-        <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-        <div id="cursor-overlay"></div>
+      <div id="editor-controls">
+        <span id="vim-mode">NORMAL</span>
+        <span id="cursor-pos">1:1</span>
+        <span id="macro-indicator">●REC</span>
+        <button id="btn-vim-mode" onclick="VimEditor.toggleVimMode()" title="VIM/編集モード切替">NOVIM</button>
+      </div>
+      <div id="editor-content">
+        <div id="line-numbers"></div>
+        <div id="editor-wrapper">
+          <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+          <div id="cursor-overlay"></div>
+        </div>
       </div>
     </div>
     <div id="preview-pane" class="pane">
