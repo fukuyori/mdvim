@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mdvim v0.1 - Vim風マークダウンエディタ</title>
+  <!-- KaTeX CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <!-- Highlight.js CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <!-- アプリケーションCSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.1</span></div>
+    <div class="view-controls">
+      <button id="btn-edit" class="active" onclick="setViewMode('edit')">編集</button>
+      <button id="btn-preview" onclick="setViewMode('preview')">プレビュー</button>
+      <button id="btn-split" onclick="setViewMode('split')">分割</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button id="btn-theme-dark" class="active" onclick="setTheme('dark')">🌙</button>
+      <button id="btn-theme-light" onclick="setTheme('light')">☀️</button>
+      <button id="btn-theme-original" onclick="setTheme('original')">💻</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button onclick="VimEditor.decreaseFontSize()" title="文字を小さく">A-</button>
+      <span id="font-size-display">100%</span>
+      <button onclick="VimEditor.increaseFontSize()" title="文字を大きく">A+</button>
+    </div>
+    <div class="mode-indicator">
+      <span id="vim-mode">NORMAL</span>
+      <span id="macro-indicator">●REC</span>
+      <span id="cursor-pos">1:1</span>
+    </div>
+  </header>
+  
+  <main id="main-container" class="split-view">
+    <div id="toc-pane">
+      <div id="toc-header">
+        <span>目次</span>
+        <button id="toc-toggle" onclick="VimEditor.toggleToc()" title="目次を閉じる">◀</button>
+      </div>
+      <div id="toc-content"></div>
+    </div>
+    <button id="toc-open-btn" class="hidden" onclick="VimEditor.toggleToc()" title="目次を開く">▶</button>
+    <div id="editor-pane" class="pane">
+      <div id="line-numbers"></div>
+      <div id="editor-wrapper">
+        <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+        <div id="cursor-overlay"></div>
+      </div>
+    </div>
+    <div id="preview-pane" class="pane">
+      <div id="preview-controls">
+        <button onclick="VimEditor.foldAllHeadings()" title="全て折りたたむ">▶ 全て折りたたむ</button>
+        <button onclick="VimEditor.unfoldAllHeadings()" title="全て展開">▼ 全て展開</button>
+      </div>
+      <div id="preview-content"></div>
+    </div>
+  </main>
+  
+  <div id="command-line" class="hidden">
+    <span id="command-prefix">:</span>
+    <input type="text" id="command-input">
+  </div>
+  
+  <input type="file" id="file-input" accept=".md,.txt,.markdown" style="display: none;">
+  
+  <footer id="status-bar">
+    <span id="file-name">無題</span>
+    <span id="file-status"></span>
+    <span id="help-hint">? でヘルプを表示</span>
+  </footer>
+  
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>⌨️ キーバインドヘルプ</h2>
+      <div class="help-columns">
+        <div class="help-section">
+          <h3>モード切替</h3>
+          <ul>
+            <li><kbd>i</kbd> 挿入モード（カーソル位置）</li>
+            <li><kbd>I</kbd> 挿入モード（行頭）</li>
+            <li><kbd>a</kbd> 挿入モード（カーソル後）</li>
+            <li><kbd>A</kbd> 挿入モード（行末）</li>
+            <li><kbd>o</kbd> 下に新しい行を挿入</li>
+            <li><kbd>O</kbd> 上に新しい行を挿入</li>
+            <li><kbd>v</kbd> ビジュアルモード</li>
+            <li><kbd>V</kbd> 行ビジュアルモード</li>
+            <li><kbd>Esc</kbd> / <kbd>Ctrl+[</kbd> ノーマルへ</li>
+            <li><kbd>:</kbd> コマンドモード</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>移動</h3>
+          <ul>
+            <li><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd> 左/下/上/右</li>
+            <li><kbd>w</kbd>/<kbd>b</kbd> 単語移動（次/前）</li>
+            <li><kbd>e</kbd> 単語末尾へ</li>
+            <li><kbd>0</kbd>/<kbd>$</kbd> 行頭/行末</li>
+            <li><kbd>^</kbd> 最初の非空白文字へ</li>
+            <li><kbd>gg</kbd>/<kbd>G</kbd> ファイル先頭/末尾</li>
+            <li><kbd>f</kbd><i>x</i> / <kbd>F</kbd><i>x</i> 行内で<i>x</i>へ</li>
+            <li><kbd>t</kbd><i>x</i> / <kbd>T</kbd><i>x</i> <i>x</i>の手前へ</li>
+            <li><kbd>;</kbd> / <kbd>,</kbd> f/t を繰り返し</li>
+            <li><kbd>%</kbd> 対応括弧へジャンプ</li>
+            <li><kbd>{</kbd> / <kbd>}</kbd> パラグラフ移動</li>
+            <li><kbd>Ctrl+f</kbd>/<kbd>Ctrl+b</kbd> 1ページ移動</li>
+            <li><kbd>Ctrl+d</kbd>/<kbd>Ctrl+u</kbd> 半ページ移動</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>編集</h3>
+          <ul>
+            <li><kbd>x</kbd> / <kbd>X</kbd> 文字削除</li>
+            <li><kbd>dd</kbd> / <kbd>dw</kbd> / <kbd>D</kbd> 削除</li>
+            <li><kbd>cc</kbd> / <kbd>cw</kbd> / <kbd>C</kbd> / <kbd>S</kbd> 変更</li>
+            <li><kbd>yy</kbd> / <kbd>yw</kbd> / <kbd>Y</kbd> ヤンク</li>
+            <li><kbd>p</kbd> / <kbd>P</kbd> 貼り付け</li>
+            <li><kbd>u</kbd> / <kbd>Ctrl+r</kbd> アンドゥ/リドゥ</li>
+            <li><kbd>.</kbd> 直前の編集を繰り返し</li>
+            <li><kbd>~</kbd> 大文字/小文字切替</li>
+            <li><kbd>J</kbd> 行を結合</li>
+            <li><kbd>r</kbd><i>x</i> 1文字置換</li>
+            <li><kbd>>></kbd> / <kbd><<</kbd> インデント</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>テキストオブジェクト</h3>
+          <ul>
+            <li><kbd>diw</kbd> / <kbd>daw</kbd> 単語削除</li>
+            <li><kbd>ciw</kbd> / <kbd>caw</kbd> 単語変更</li>
+            <li><kbd>di"</kbd> / <kbd>da"</kbd> "..."内を削除</li>
+            <li><kbd>di'</kbd> / <kbd>da'</kbd> '...'内を削除</li>
+            <li><kbd>di(</kbd> / <kbd>da(</kbd> (...)内を削除</li>
+            <li><kbd>di[</kbd> / <kbd>da[</kbd> [...]内を削除</li>
+            <li><kbd>di{</kbd> / <kbd>da{</kbd> {...}内を削除</li>
+            <li><kbd>di`</kbd> / <kbd>da`</kbd> `...`内を削除</li>
+            <li><kbd>yi</kbd><i>x</i> / <kbd>ci</kbd><i>x</i> も同様</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>マーク</h3>
+          <ul>
+            <li><kbd>m</kbd><i>a-z</i> 位置をマーク</li>
+            <li><kbd>'</kbd><i>a-z</i> マーク行頭へ</li>
+            <li><kbd>`</kbd><i>a-z</i> マーク位置へ</li>
+            <li><kbd>''</kbd> 直前位置へ戻る</li>
+          </ul>
+          <h3 style="margin-top: 1rem;">マクロ</h3>
+          <ul>
+            <li><kbd>q</kbd><i>a-z</i> 記録開始</li>
+            <li><kbd>q</kbd> 記録終了</li>
+            <li><kbd>@</kbd><i>a-z</i> マクロ再生</li>
+            <li><kbd>@@</kbd> 直前のマクロ再生</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>検索・置換</h3>
+          <ul>
+            <li><kbd>/</kbd><i>pattern</i> 前方検索</li>
+            <li><kbd>n</kbd> / <kbd>N</kbd> 次/前の検索結果</li>
+            <li><kbd>*</kbd> カーソル下の単語を検索</li>
+            <li><kbd>:s/old/new/</kbd> 置換（現在行）</li>
+            <li><kbd>:%s/old/new/g</kbd> 全置換</li>
+            <li><kbd>:n,ms/old/new/g</kbd> 範囲置換</li>
+          </ul>
+          <h3 style="margin-top: 1rem;">コマンド</h3>
+          <ul>
+            <li><kbd>:w</kbd> 保存ダイアログを開く</li>
+            <li><kbd>:w file.md</kbd> 指定名でダウンロード</li>
+            <li><kbd>:e</kbd> ファイルを開く</li>
+            <li><kbd>:r</kbd> カーソル位置に挿入</li>
+            <li><kbd>:new</kbd> 新規ファイル</li>
+            <li><kbd>:ls</kbd> ローカルストレージに保存</li>
+            <li><kbd>:q</kbd> / <kbd>:wq</kbd> 終了</li>
+            <li><kbd>:set nu/nonu</kbd> 行番号切替</li>
+            <li><kbd>:theme dark/light/original</kbd> テーマ変更</li>
+            <li><kbd>:help</kbd> ヘルプ表示</li>
+          </ul>
+        </div>
+      </div>
+      <div class="help-section" style="margin-top: 1rem;">
+        <h3>数式（LaTeX）</h3>
+        <ul style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.3rem;">
+          <li><kbd>$...$</kbd> インライン数式</li>
+          <li><kbd>$$...$$</kbd> ブロック数式</li>
+          <li><kbd>\frac{a}{b}</kbd> 分数</li>
+          <li><kbd>\sqrt{x}</kbd> 平方根</li>
+          <li><kbd>x^{2}</kbd> 上付き</li>
+          <li><kbd>x_{i}</kbd> 下付き</li>
+          <li><kbd>\sum_{i=0}^{n}</kbd> 総和</li>
+          <li><kbd>\int_{a}^{b}</kbd> 積分</li>
+          <li><kbd>\alpha \beta</kbd> ギリシャ文字</li>
+          <li><kbd>\mathbf{x}</kbd> 太字</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">テーブル</h3>
+        <ul>
+          <li><kbd>| A | B |</kbd> ヘッダー行</li>
+          <li><kbd>|---|---|</kbd> 区切り行</li>
+          <li><kbd>|:--|</kbd> 左寄せ <kbd>|:-:|</kbd> 中央 <kbd>|--:|</kbd> 右寄せ</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">Mermaid図</h3>
+        <ul>
+          <li><kbd>```mermaid</kbd> 図ブロック開始</li>
+          <li><kbd>graph TD</kbd> フローチャート（上→下）</li>
+          <li><kbd>graph LR</kbd> フローチャート（左→右）</li>
+          <li><kbd>sequenceDiagram</kbd> シーケンス図</li>
+          <li><kbd>classDiagram</kbd> クラス図</li>
+          <li><kbd>gantt</kbd> ガントチャート</li>
+          <li><kbd>pie</kbd> 円グラフ</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">折り畳み</h3>
+        <ul>
+          <li><kbd>:::details タイトル</kbd> 折り畳み開始</li>
+          <li><kbd>:::</kbd> 折り畳み終了</li>
+          <li>内部にMarkdown記法を使用可能</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">見出し折り畳み</h3>
+        <ul>
+          <li>プレビューの見出しをクリックで折り畳み</li>
+          <li>「全て折りたたむ」「全て展開」ボタン</li>
+          <li>同レベル以上の見出しまで折り畳み</li>
+        </ul>
+      </div>
+      <button onclick="toggleHelp()">閉じる (Esc)</button>
+    </div>
+  </div>
+
+<!-- KaTeX JS -->
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<!-- Mermaid JS -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- Highlight.js -->
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>
+  mermaid.initialize({ 
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose'
+  });
+</script>
+
+<!-- アプリケーション JS -->
+<script src="js/markdown-parser.js"></script>
+<script src="js/vim-editor.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

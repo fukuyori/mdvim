@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mdvim v0.1 - Vim-style Markdown Editor</title>
+  <!-- KaTeX CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <!-- Highlight.js CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <!-- Application CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.1</span></div>
+    <div class="view-controls">
+      <button id="btn-edit" class="active" onclick="setViewMode('edit')">Edit</button>
+      <button id="btn-preview" onclick="setViewMode('preview')">Preview</button>
+      <button id="btn-split" onclick="setViewMode('split')">Split</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button id="btn-theme-dark" class="active" onclick="setTheme('dark')">🌙</button>
+      <button id="btn-theme-light" onclick="setTheme('light')">☀️</button>
+      <button id="btn-theme-original" onclick="setTheme('original')">💻</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button onclick="VimEditor.decreaseFontSize()" title="Decrease font size">A-</button>
+      <span id="font-size-display">100%</span>
+      <button onclick="VimEditor.increaseFontSize()" title="Increase font size">A+</button>
+    </div>
+    <div class="mode-indicator">
+      <span id="vim-mode">NORMAL</span>
+      <span id="macro-indicator">●REC</span>
+      <span id="cursor-pos">1:1</span>
+    </div>
+  </header>
+  
+  <main id="main-container" class="split-view">
+    <div id="toc-pane">
+      <div id="toc-header">
+        <span>Headings</span>
+        <button id="toc-toggle" onclick="VimEditor.toggleToc()" title="Close headings">◀</button>
+      </div>
+      <div id="toc-content"></div>
+    </div>
+    <button id="toc-open-btn" class="hidden" onclick="VimEditor.toggleToc()" title="Open headings">▶</button>
+    <div id="editor-pane" class="pane">
+      <div id="line-numbers"></div>
+      <div id="editor-wrapper">
+        <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+        <div id="cursor-overlay"></div>
+      </div>
+    </div>
+    <div id="preview-pane" class="pane">
+      <div id="preview-controls">
+        <button onclick="VimEditor.foldAllHeadings()" title="Collapse all">▶ Collapse All</button>
+        <button onclick="VimEditor.unfoldAllHeadings()" title="Expand all">▼ Expand All</button>
+      </div>
+      <div id="preview-content"></div>
+    </div>
+  </main>
+  
+  <div id="command-line" class="hidden">
+    <span id="command-prefix">:</span>
+    <input type="text" id="command-input">
+  </div>
+  
+  <input type="file" id="file-input" accept=".md,.txt,.markdown" style="display: none;">
+  
+  <footer id="status-bar">
+    <span id="file-name">Untitled</span>
+    <span id="file-status"></span>
+    <span id="help-hint">Press ? for help</span>
+  </footer>
+  
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>⌨️ Keybindings Help</h2>
+      <div class="help-columns">
+        <div class="help-section">
+          <h3>Mode Switch</h3>
+          <ul>
+            <li><kbd>i</kbd> Insert at cursor</li>
+            <li><kbd>I</kbd> Insert at line start</li>
+            <li><kbd>a</kbd> Insert after cursor</li>
+            <li><kbd>A</kbd> Insert at line end</li>
+            <li><kbd>o</kbd> New line below</li>
+            <li><kbd>O</kbd> New line above</li>
+            <li><kbd>v</kbd> Visual mode</li>
+            <li><kbd>V</kbd> Visual line mode</li>
+            <li><kbd>Esc</kbd> / <kbd>Ctrl+[</kbd> Normal mode</li>
+            <li><kbd>:</kbd> Command mode</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Movement</h3>
+          <ul>
+            <li><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd> Left/Down/Up/Right</li>
+            <li><kbd>w</kbd>/<kbd>b</kbd> Word forward/backward</li>
+            <li><kbd>e</kbd> End of word</li>
+            <li><kbd>0</kbd>/<kbd>$</kbd> Line start/end</li>
+            <li><kbd>^</kbd> First non-space</li>
+            <li><kbd>gg</kbd>/<kbd>G</kbd> File start/end</li>
+            <li><kbd>f</kbd><i>x</i> / <kbd>F</kbd><i>x</i> Find <i>x</i> in line</li>
+            <li><kbd>t</kbd><i>x</i> / <kbd>T</kbd><i>x</i> Till <i>x</i></li>
+            <li><kbd>;</kbd> / <kbd>,</kbd> Repeat f/t</li>
+            <li><kbd>%</kbd> Matching bracket</li>
+            <li><kbd>{</kbd> / <kbd>}</kbd> Paragraph</li>
+            <li><kbd>Ctrl+f</kbd>/<kbd>Ctrl+b</kbd> Page up/down</li>
+            <li><kbd>Ctrl+d</kbd>/<kbd>Ctrl+u</kbd> Half page</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Editing</h3>
+          <ul>
+            <li><kbd>x</kbd> / <kbd>X</kbd> Delete char</li>
+            <li><kbd>dd</kbd> / <kbd>dw</kbd> / <kbd>D</kbd> Delete</li>
+            <li><kbd>cc</kbd> / <kbd>cw</kbd> / <kbd>C</kbd> / <kbd>S</kbd> Change</li>
+            <li><kbd>yy</kbd> / <kbd>yw</kbd> / <kbd>Y</kbd> Yank</li>
+            <li><kbd>p</kbd> / <kbd>P</kbd> Paste</li>
+            <li><kbd>u</kbd> / <kbd>Ctrl+r</kbd> Undo/Redo</li>
+            <li><kbd>.</kbd> Repeat last edit</li>
+            <li><kbd>~</kbd> Toggle case</li>
+            <li><kbd>J</kbd> Join lines</li>
+            <li><kbd>r</kbd><i>x</i> Replace char</li>
+            <li><kbd>>></kbd> / <kbd><<</kbd> Indent</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Text Objects</h3>
+          <ul>
+            <li><kbd>diw</kbd> / <kbd>daw</kbd> Delete word</li>
+            <li><kbd>ciw</kbd> / <kbd>caw</kbd> Change word</li>
+            <li><kbd>di"</kbd> / <kbd>da"</kbd> Delete in "..."</li>
+            <li><kbd>di'</kbd> / <kbd>da'</kbd> Delete in '...'</li>
+            <li><kbd>di(</kbd> / <kbd>da(</kbd> Delete in (...)</li>
+            <li><kbd>di[</kbd> / <kbd>da[</kbd> Delete in [...]</li>
+            <li><kbd>di{</kbd> / <kbd>da{</kbd> Delete in {...}</li>
+            <li><kbd>di`</kbd> / <kbd>da`</kbd> Delete in `...`</li>
+            <li><kbd>yi</kbd><i>x</i> / <kbd>ci</kbd><i>x</i> same pattern</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Marks</h3>
+          <ul>
+            <li><kbd>m</kbd><i>a-z</i> Set mark</li>
+            <li><kbd>'</kbd><i>a-z</i> Go to mark line</li>
+            <li><kbd>`</kbd><i>a-z</i> Go to mark position</li>
+            <li><kbd>''</kbd> Go to previous</li>
+          </ul>
+          <h3 style="margin-top: 1rem;">Macros</h3>
+          <ul>
+            <li><kbd>q</kbd><i>a-z</i> Start recording</li>
+            <li><kbd>q</kbd> Stop recording</li>
+            <li><kbd>@</kbd><i>a-z</i> Play macro</li>
+            <li><kbd>@@</kbd> Replay last macro</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Search & Replace</h3>
+          <ul>
+            <li><kbd>/</kbd><i>pattern</i> Search forward</li>
+            <li><kbd>n</kbd> / <kbd>N</kbd> Next/prev result</li>
+            <li><kbd>*</kbd> Search word under cursor</li>
+            <li><kbd>:s/old/new/</kbd> Replace (line)</li>
+            <li><kbd>:%s/old/new/g</kbd> Replace all</li>
+            <li><kbd>:n,ms/old/new/g</kbd> Range replace</li>
+          </ul>
+          <h3 style="margin-top: 1rem;">Commands</h3>
+          <ul>
+            <li><kbd>:w</kbd> Save dialog</li>
+            <li><kbd>:w file.md</kbd> Download as name</li>
+            <li><kbd>:e</kbd> Open file</li>
+            <li><kbd>:r</kbd> Insert at cursor</li>
+            <li><kbd>:new</kbd> New file</li>
+            <li><kbd>:ls</kbd> Save to localStorage</li>
+            <li><kbd>:q</kbd> / <kbd>:wq</kbd> Quit</li>
+            <li><kbd>:set nu/nonu</kbd> Toggle line numbers</li>
+            <li><kbd>:theme dark/light/original</kbd> Theme</li>
+            <li><kbd>:help</kbd> Show help</li>
+          </ul>
+        </div>
+      </div>
+      <div class="help-section" style="margin-top: 1rem;">
+        <h3>Math (LaTeX)</h3>
+        <ul style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.3rem;">
+          <li><kbd>$...$</kbd> Inline math</li>
+          <li><kbd>$$...$$</kbd> Block math</li>
+          <li><kbd>\frac{a}{b}</kbd> Fraction</li>
+          <li><kbd>\sqrt{x}</kbd> Square root</li>
+          <li><kbd>x^{2}</kbd> Superscript</li>
+          <li><kbd>x_{i}</kbd> Subscript</li>
+          <li><kbd>\sum_{i=0}^{n}</kbd> Summation</li>
+          <li><kbd>\int_{a}^{b}</kbd> Integral</li>
+          <li><kbd>\alpha \beta</kbd> Greek letters</li>
+          <li><kbd>\mathbf{x}</kbd> Bold</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">Tables</h3>
+        <ul>
+          <li><kbd>| A | B |</kbd> Header row</li>
+          <li><kbd>|---|---|</kbd> Separator</li>
+          <li><kbd>|:--|</kbd> Left <kbd>|:-:|</kbd> Center <kbd>|--:|</kbd> Right</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">Mermaid Diagrams</h3>
+        <ul>
+          <li><kbd>```mermaid</kbd> Start diagram block</li>
+          <li><kbd>graph TD</kbd> Flowchart (top-down)</li>
+          <li><kbd>graph LR</kbd> Flowchart (left-right)</li>
+          <li><kbd>sequenceDiagram</kbd> Sequence</li>
+          <li><kbd>classDiagram</kbd> Class</li>
+          <li><kbd>gantt</kbd> Gantt chart</li>
+          <li><kbd>pie</kbd> Pie chart</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">Collapsible</h3>
+        <ul>
+          <li><kbd>:::details Title</kbd> Start collapsible</li>
+          <li><kbd>:::</kbd> End collapsible</li>
+          <li>Markdown supported inside</li>
+        </ul>
+        <h3 style="margin-top: 1rem;">Heading Fold</h3>
+        <ul>
+          <li>Click heading in preview to fold</li>
+          <li>Collapse All / Expand All buttons</li>
+          <li>Folds until same or higher level</li>
+        </ul>
+      </div>
+      <button onclick="toggleHelp()">Close (Esc)</button>
+    </div>
+  </div>
+
+<!-- KaTeX JS -->
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<!-- Mermaid JS -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<!-- Highlight.js -->
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script>
+  mermaid.initialize({ 
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose'
+  });
+</script>
+
+<!-- Application JS -->
+<script src="js/markdown-parser.js"></script>
+<script src="js/vim-editor.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
