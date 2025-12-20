@@ -11,7 +11,7 @@
     <a href="#license">License</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.2-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.2.1-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/no%20install-required-brightgreen.svg" alt="No Install">
@@ -357,6 +357,12 @@ All loaded via CDN (no build required):
 - [highlight.js](https://highlightjs.org/) v11.9.0 — Syntax highlighting
 
 ## 📝 Changelog
+
+### v0.2.1
+- 🔧 Improved multi-tab session support
+- 💾 Per-session auto-save to localStorage
+- 🧹 Auto-cleanup of old sessions (7+ days)
+- 📁 Filename preserved across sessions
 
 ### v0.2
 - ✨ Added NOVIM mode for standard editing

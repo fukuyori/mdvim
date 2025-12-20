@@ -131,34 +131,74 @@ const VimEditor = {
   },
   
   loadFromStorage() {
-    // Check for session-specific content first (tab restore)
+    // 1. Check sessionStorage first (tab restore)
     const sessionContent = sessionStorage.getItem('vim-md-content-' + this.sessionId);
     if (sessionContent) {
       this.editor.value = sessionContent;
-      // Restore filename from localStorage
-      const savedFilename = localStorage.getItem('vim-md-filename');
-      if (savedFilename) {
-        this.currentFileName = savedFilename;
-        this.fileName.textContent = savedFilename;
-      }
+      // Restore filename from localStorage session data
+      try {
+        const sessionData = JSON.parse(localStorage.getItem('vim-md-session-' + this.sessionId) || '{}');
+        if (sessionData.filename) {
+          this.currentFileName = sessionData.filename;
+          this.fileName.textContent = sessionData.filename;
+        }
+      } catch (e) {}
       this.showStatus('Session restored');
       return;
     }
     
-    // Load from localStorage (normal startup)
-    const saved = localStorage.getItem('vim-md-content');
-    const savedFilename = localStorage.getItem('vim-md-filename');
+    // 2. For new tabs, restore the latest session from localStorage
+    let sessions = [];
+    try {
+      sessions = JSON.parse(localStorage.getItem('vim-md-sessions') || '[]');
+    } catch (e) {
+      sessions = [];
+    }
     
-    if (saved) {
-      this.editor.value = saved;
-      if (savedFilename) {
-        this.currentFileName = savedFilename;
-        this.fileName.textContent = savedFilename;
+    if (sessions.length > 0) {
+      // Find the latest session
+      let latestSession = null;
+      let latestTimestamp = 0;
+      
+      for (const sid of sessions) {
+        try {
+          const data = JSON.parse(localStorage.getItem('vim-md-session-' + sid) || '{}');
+          if (data.timestamp && data.timestamp > latestTimestamp && data.content) {
+            latestTimestamp = data.timestamp;
+            latestSession = data;
+          }
+        } catch (e) {}
       }
+      
+      if (latestSession) {
+        this.editor.value = latestSession.content;
+        this.currentFileName = latestSession.filename || 'Untitled';
+        this.fileName.textContent = this.currentFileName;
+        this.showStatus('Previous content restored');
+        return;
+      }
+    }
+    
+    // 3. Migrate from old localStorage format
+    const oldContent = localStorage.getItem('vim-md-content');
+    if (oldContent) {
+      this.editor.value = oldContent;
+      const oldFilename = localStorage.getItem('vim-md-filename');
+      if (oldFilename) {
+        this.currentFileName = oldFilename;
+        this.fileName.textContent = oldFilename;
+      }
+      // Migrate to new format
+      this.saveSessionData();
+      // Remove old format
+      localStorage.removeItem('vim-md-content');
+      localStorage.removeItem('vim-md-filename');
       this.showStatus('Previous content restored');
-    } else {
-      // Default content for first launch
-      this.editor.value = `# Welcome to mdvim v0.2!
+      return;
+    }
+    
+    // 4. Default content for first launch
+    this.editor.value = `# Welcome to mdvim v0.2.1!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -241,7 +281,6 @@ Warning message
 
 Press \`?\` for help
 `;
-    }
   },
   
   // マクロ記録
@@ -2199,23 +2238,75 @@ Press \`?\` for help
   
   // Save
   save() {
-    // Session-specific save
-    sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
-    // Save to localStorage
-    localStorage.setItem('vim-md-content', this.editor.value);
-    localStorage.setItem('vim-md-filename', this.currentFileName || 'Untitled');
+    this.saveSessionData();
     this.modified = false;
     this.updateFileStatus();
     this.showStatus('Saved');
   },
   
-  // Auto-save (session + localStorage)
-  autoSave() {
-    // Session-specific save (per tab)
+  // Save session data
+  saveSessionData() {
+    // Save to sessionStorage (for tab restore)
     sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
-    // Save to localStorage (for next startup)
-    localStorage.setItem('vim-md-content', this.editor.value);
-    localStorage.setItem('vim-md-filename', this.currentFileName || 'Untitled');
+    
+    // Save to localStorage per session
+    const sessionData = {
+      content: this.editor.value,
+      filename: this.currentFileName || 'Untitled',
+      timestamp: Date.now()
+    };
+    localStorage.setItem('vim-md-session-' + this.sessionId, JSON.stringify(sessionData));
+    
+    // Update session list
+    let sessions = [];
+    try {
+      sessions = JSON.parse(localStorage.getItem('vim-md-sessions') || '[]');
+    } catch (e) {
+      sessions = [];
+    }
+    if (!sessions.includes(this.sessionId)) {
+      sessions.push(this.sessionId);
+      localStorage.setItem('vim-md-sessions', JSON.stringify(sessions));
+    }
+    
+    // Cleanup old sessions (older than 7 days)
+    this.cleanupOldSessions();
+  },
+  
+  // Remove old sessions
+  cleanupOldSessions() {
+    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const now = Date.now();
+    let sessions = [];
+    try {
+      sessions = JSON.parse(localStorage.getItem('vim-md-sessions') || '[]');
+    } catch (e) {
+      return;
+    }
+    
+    const validSessions = sessions.filter(sid => {
+      if (sid === this.sessionId) return true; // Keep current session
+      try {
+        const data = JSON.parse(localStorage.getItem('vim-md-session-' + sid) || '{}');
+        if (data.timestamp && (now - data.timestamp) > maxAge) {
+          localStorage.removeItem('vim-md-session-' + sid);
+          return false;
+        }
+        return true;
+      } catch (e) {
+        localStorage.removeItem('vim-md-session-' + sid);
+        return false;
+      }
+    });
+    
+    if (validSessions.length !== sessions.length) {
+      localStorage.setItem('vim-md-sessions', JSON.stringify(validSessions));
+    }
+  },
+  
+  // Auto-save
+  autoSave() {
+    this.saveSessionData();
   },
   
   // ダイアログで保存

@@ -131,34 +131,74 @@ const VimEditor = {
   },
   
   loadFromStorage() {
-    // まずセッション固有の内容を探す（タブ復帰時）
+    // 1. まずsessionStorageを確認（タブ復帰時）
     const sessionContent = sessionStorage.getItem('vim-md-content-' + this.sessionId);
     if (sessionContent) {
       this.editor.value = sessionContent;
-      // ファイル名はlocalStorageから復元
-      const savedFilename = localStorage.getItem('vim-md-filename');
-      if (savedFilename) {
-        this.currentFileName = savedFilename;
-        this.fileName.textContent = savedFilename;
-      }
-      this.showStatus('前回のセッションを復元しました');
+      // ファイル名はlocalStorageのセッションデータから復元
+      try {
+        const sessionData = JSON.parse(localStorage.getItem('vim-md-session-' + this.sessionId) || '{}');
+        if (sessionData.filename) {
+          this.currentFileName = sessionData.filename;
+          this.fileName.textContent = sessionData.filename;
+        }
+      } catch (e) {}
+      this.showStatus('セッションを復元しました');
       return;
     }
     
-    // localStorageから読み込み（通常の起動時）
-    const saved = localStorage.getItem('vim-md-content');
-    const savedFilename = localStorage.getItem('vim-md-filename');
+    // 2. 新規タブの場合、localStorageから最新のセッションを復元
+    let sessions = [];
+    try {
+      sessions = JSON.parse(localStorage.getItem('vim-md-sessions') || '[]');
+    } catch (e) {
+      sessions = [];
+    }
     
-    if (saved) {
-      this.editor.value = saved;
-      if (savedFilename) {
-        this.currentFileName = savedFilename;
-        this.fileName.textContent = savedFilename;
+    if (sessions.length > 0) {
+      // 最新のセッションを探す
+      let latestSession = null;
+      let latestTimestamp = 0;
+      
+      for (const sid of sessions) {
+        try {
+          const data = JSON.parse(localStorage.getItem('vim-md-session-' + sid) || '{}');
+          if (data.timestamp && data.timestamp > latestTimestamp && data.content) {
+            latestTimestamp = data.timestamp;
+            latestSession = data;
+          }
+        } catch (e) {}
       }
+      
+      if (latestSession) {
+        this.editor.value = latestSession.content;
+        this.currentFileName = latestSession.filename || '無題';
+        this.fileName.textContent = this.currentFileName;
+        this.showStatus('前回の内容を復元しました');
+        return;
+      }
+    }
+    
+    // 3. 旧形式のlocalStorageからマイグレーション
+    const oldContent = localStorage.getItem('vim-md-content');
+    if (oldContent) {
+      this.editor.value = oldContent;
+      const oldFilename = localStorage.getItem('vim-md-filename');
+      if (oldFilename) {
+        this.currentFileName = oldFilename;
+        this.fileName.textContent = oldFilename;
+      }
+      // マイグレーション：新形式で保存
+      this.saveSessionData();
+      // 旧形式を削除
+      localStorage.removeItem('vim-md-content');
+      localStorage.removeItem('vim-md-filename');
       this.showStatus('前回の内容を復元しました');
-    } else {
-      // 初回起動時のデフォルト内容
-      this.editor.value = `# mdvim v0.2 へようこそ！
+      return;
+    }
+    
+    // 4. 初回起動時のデフォルト内容
+    this.editor.value = `# mdvim v0.2.1 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -241,7 +281,6 @@ graph LR
 
 \`?\` キーでヘルプを表示
 `;
-    }
   },
   
   // マクロ記録
@@ -2199,23 +2238,75 @@ graph LR
   
   // 保存
   save() {
-    // セッション固有の保存
-    sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
-    // ローカルストレージに保存
-    localStorage.setItem('vim-md-content', this.editor.value);
-    localStorage.setItem('vim-md-filename', this.currentFileName || '無題');
+    this.saveSessionData();
     this.modified = false;
     this.updateFileStatus();
     this.showStatus('保存しました');
   },
   
-  // 自動保存（セッション＋ローカルストレージ）
-  autoSave() {
-    // セッション固有の保存（タブごと）
+  // セッションデータを保存
+  saveSessionData() {
+    // sessionStorageに保存（タブ復帰用）
     sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
-    // ローカルストレージに自動保存（次回起動時用）
-    localStorage.setItem('vim-md-content', this.editor.value);
-    localStorage.setItem('vim-md-filename', this.currentFileName || '無題');
+    
+    // localStorageにセッションごとに保存
+    const sessionData = {
+      content: this.editor.value,
+      filename: this.currentFileName || '無題',
+      timestamp: Date.now()
+    };
+    localStorage.setItem('vim-md-session-' + this.sessionId, JSON.stringify(sessionData));
+    
+    // セッションリストを更新
+    let sessions = [];
+    try {
+      sessions = JSON.parse(localStorage.getItem('vim-md-sessions') || '[]');
+    } catch (e) {
+      sessions = [];
+    }
+    if (!sessions.includes(this.sessionId)) {
+      sessions.push(this.sessionId);
+      localStorage.setItem('vim-md-sessions', JSON.stringify(sessions));
+    }
+    
+    // 古いセッションをクリーンアップ（7日以上前）
+    this.cleanupOldSessions();
+  },
+  
+  // 古いセッションを削除
+  cleanupOldSessions() {
+    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7日
+    const now = Date.now();
+    let sessions = [];
+    try {
+      sessions = JSON.parse(localStorage.getItem('vim-md-sessions') || '[]');
+    } catch (e) {
+      return;
+    }
+    
+    const validSessions = sessions.filter(sid => {
+      if (sid === this.sessionId) return true; // 現在のセッションは保持
+      try {
+        const data = JSON.parse(localStorage.getItem('vim-md-session-' + sid) || '{}');
+        if (data.timestamp && (now - data.timestamp) > maxAge) {
+          localStorage.removeItem('vim-md-session-' + sid);
+          return false;
+        }
+        return true;
+      } catch (e) {
+        localStorage.removeItem('vim-md-session-' + sid);
+        return false;
+      }
+    });
+    
+    if (validSessions.length !== sessions.length) {
+      localStorage.setItem('vim-md-sessions', JSON.stringify(validSessions));
+    }
+  },
+  
+  // 自動保存
+  autoSave() {
+    this.saveSessionData();
   },
   
   // ダイアログで保存

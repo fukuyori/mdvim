@@ -11,7 +11,7 @@
     <a href="#ライセンス">ライセンス</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.2-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.2.1-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/インストール-不要-brightgreen.svg" alt="No Install">
@@ -357,6 +357,12 @@ mdvim/
 - [highlight.js](https://highlightjs.org/) v11.9.0 — シンタックスハイライト
 
 ## 📝 更新履歴
+
+### v0.2.1
+- 🔧 複数タブでのセッション管理を改善
+- 💾 セッションごとのlocalStorage自動保存
+- 🧹 古いセッションの自動クリーンアップ（7日以上）
+- 📁 セッション間でファイル名を保持
 
 ### v0.2
 - ✨ 標準編集用のNOVIMモードを追加
