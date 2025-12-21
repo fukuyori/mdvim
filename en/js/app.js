@@ -67,6 +67,21 @@ document.addEventListener('DOMContentLoaded', () => {
   loadTheme();
   VimEditor.init();
   VimEditor.editor.focus();
+  
+  // Click anywhere to return focus to editor
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    const isInteractive = target.closest('button, input, select, a, .filename, #command-input, #help-content');
+    
+    if (VimEditor.mode === 'command') return;
+    
+    if (!isInteractive) {
+      setTimeout(() => {
+        VimEditor.editor.focus();
+        VimEditor.updateCursorPos();
+      }, 0);
+    }
+  });
 });
 
 // Confirm on page leave

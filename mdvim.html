@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.2.2 - Vim-style Markdown Editor</title>
+  <title>mdvim v0.2.3 - Vim-style Markdown Editor</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -807,7 +807,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.2</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.3</span></div>
     <div class="view-controls">
       <button id="btn-edit" class="active" onclick="setViewMode('edit')">Edit</button>
       <button id="btn-preview" onclick="setViewMode('preview')">Preview</button>
@@ -1621,7 +1621,12 @@ const VimEditor = {
     }
     
     // 4. Default content for first launch
-    this.editor.value = `# Welcome to mdvim v0.2.2!
+    this.editor.value = this.getWelcomeContent();
+  },
+  
+  // Get welcome document content
+  getWelcomeContent() {
+    return `# Welcome to mdvim v0.2.3!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -1706,6 +1711,20 @@ Press \`?\` for help
 `;
   },
   
+  // Show welcome screen
+  showWelcome() {
+    this.saveState();
+    this.editor.value = this.getWelcomeContent();
+    this.filename = 'welcome.md';
+    this.filenameEl.textContent = this.filename;
+    this.modified = false;
+    this.updateFileStatus();
+    this.editor.selectionStart = 0;
+    this.editor.selectionEnd = 0;
+    this.onInput();
+    this.showStatus('Welcome screen displayed');
+  },
+  
   // マクロ記録
   recordKey(key, e) {
     if (this.recordingMacro && key !== 'q') {
@@ -1717,6 +1736,14 @@ Press \`?\` for help
   handleKeydown(e) {
     // NOVIMモードの場合 - シンプルに処理
     if (this.vimMode !== true) {
+      
+      // Ctrl+` でVIMモードに切り替え
+      if (e.ctrlKey && e.code === 'Backquote') {
+        e.preventDefault();
+        this.setVimMode(true);
+        return;
+      }
+      
       // Ctrl+キーのショートカット
       if (e.ctrlKey) {
         switch (e.key.toLowerCase()) {
@@ -1750,20 +1777,6 @@ Press \`?\` for help
         return;
       }
       
-      // ?キー（ヘルプ）
-      if (e.key === '?' && !e.altKey) {
-        e.preventDefault();
-        toggleHelp();
-        return;
-      }
-      
-      // :キー（コマンドモード）
-      if (e.key === ':' && !e.altKey) {
-        e.preventDefault();
-        this.enterCommandMode();
-        return;
-      }
-      
       // Tabキー
       if (e.key === 'Tab') {
         e.preventDefault();
@@ -1785,6 +1798,13 @@ Press \`?\` for help
     }
     
     // 以下はVIMモード（this.vimMode === true）の処理
+    
+    // Ctrl+` でNOVIMモードに切り替え
+    if (e.ctrlKey && e.code === 'Backquote') {
+      e.preventDefault();
+      this.setVimMode(false);
+      return;
+    }
     
     // Ctrl+[ をESCとして扱う
     if (e.ctrlKey && e.key === '[') {
@@ -2019,6 +2039,7 @@ Press \`?\` for help
       case '^': this.moveToFirstNonSpace(); break;
       case 'g': this.pendingKey = 'g'; break;
       case 'G': if (count > 1) this.gotoLine(count); else this.moveToEnd(); break;
+      case 'z': this.pendingKey = 'z'; break;
       
       // 行内検索 (f/F/t/T)
       case 'f': this.pendingKey = 'f'; break;
@@ -2214,6 +2235,21 @@ Press \`?\` for help
     switch(pending) {
       case 'g':
         if (key === 'g') this.moveToStart();
+        break;
+      
+      case 'z':
+        // z Enter, zt - cursor line to top
+        if (key === 'Enter' || key === 't') {
+          this.scrollCursorToTop();
+        }
+        // z. zz - cursor line to center
+        else if (key === '.' || key === 'z') {
+          this.scrollCursorToCenter();
+        }
+        // z- zb - cursor line to bottom
+        else if (key === '-' || key === 'b') {
+          this.scrollCursorToBottom();
+        }
         break;
         
       case 'd':
@@ -2732,6 +2768,10 @@ Press \`?\` for help
         break;
       case 'new!':
         this.newFile();
+        break;
+      case 'welcome':
+        // Show welcome screen
+        this.showWelcome();
         break;
       case 'set':
         if (parts[1] === 'nu' || parts[1] === 'number') {
@@ -4651,6 +4691,42 @@ Press \`?\` for help
     } else if (cursorTop > visibleBottom - lineHeight * 2) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight * 3 / 4;
     }
+  },
+  
+  // z Enter, zt - cursor line to top
+  scrollCursorToTop() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop;
+    this.updateCursorPos();
+  },
+  
+  // z. zz - cursor line to center
+  scrollCursorToCenter() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop - (this.editor.clientHeight / 2) + lineHeight;
+    this.updateCursorPos();
+  },
+  
+  // z- zb - cursor line to bottom
+  scrollCursorToBottom() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop - this.editor.clientHeight + lineHeight * 2;
+    this.updateCursorPos();
   }
 };
 
@@ -4719,6 +4795,21 @@ document.addEventListener('DOMContentLoaded', () => {
   loadTheme();
   VimEditor.init();
   VimEditor.editor.focus();
+  
+  // Click anywhere to return focus to editor
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    const isInteractive = target.closest('button, input, select, a, .filename, #command-input, #help-content');
+    
+    if (VimEditor.mode === 'command') return;
+    
+    if (!isInteractive) {
+      setTimeout(() => {
+        VimEditor.editor.focus();
+        VimEditor.updateCursorPos();
+      }, 0);
+    }
+  });
 });
 
 window.addEventListener('beforeunload', e => {

@@ -67,6 +67,21 @@ document.addEventListener('DOMContentLoaded', () => {
   loadTheme();
   VimEditor.init();
   VimEditor.editor.focus();
+  
+  // どこをクリックしてもエディタにフォーカスを戻す
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    const isInteractive = target.closest('button, input, select, a, .filename, #command-input, #help-content');
+    
+    if (VimEditor.mode === 'command') return;
+    
+    if (!isInteractive) {
+      setTimeout(() => {
+        VimEditor.editor.focus();
+        VimEditor.updateCursorPos();
+      }, 0);
+    }
+  });
 });
 
 // ページ離脱時の確認

@@ -358,7 +358,9 @@ All loaded via CDN (no build required):
 
 ## 📝 Changelog
 
-### v0.2.2
+### v0.2.3
+- ✨ Added `z` commands for screen scrolling (`zt`, `zz`, `zb`, `z Enter`, `z.`, `z-`)
+- ✨ Added `:welcome` command to display welcome screen
 - 🐛 Fixed focus loss when pressing `x` at beginning of first line
 - 🐛 Fixed `dd` not working on empty lines or single-line documents
 - 🔧 Improved cursor position and display after delete operations

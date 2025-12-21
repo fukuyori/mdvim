@@ -198,7 +198,12 @@ const VimEditor = {
     }
     
     // 4. Default content for first launch
-    this.editor.value = `# Welcome to mdvim v0.2.1!
+    this.editor.value = this.getWelcomeContent();
+  },
+  
+  // Get welcome document content
+  getWelcomeContent() {
+    return `# Welcome to mdvim v0.2.3!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -283,6 +288,20 @@ Press \`?\` for help
 `;
   },
   
+  // Show welcome screen
+  showWelcome() {
+    this.saveState();
+    this.editor.value = this.getWelcomeContent();
+    this.filename = 'welcome.md';
+    this.filenameEl.textContent = this.filename;
+    this.modified = false;
+    this.updateFileStatus();
+    this.editor.selectionStart = 0;
+    this.editor.selectionEnd = 0;
+    this.onInput();
+    this.showStatus('Welcome screen displayed');
+  },
+  
   // マクロ記録
   recordKey(key, e) {
     if (this.recordingMacro && key !== 'q') {
@@ -293,6 +312,14 @@ Press \`?\` for help
   handleKeydown(e) {
     // NOVIM mode - simple processing
     if (this.vimMode !== true) {
+      
+      // Ctrl+` to switch to VIM mode
+      if (e.ctrlKey && e.code === 'Backquote') {
+        e.preventDefault();
+        this.setVimMode(true);
+        return;
+      }
+      
       // Ctrl+key shortcuts
       if (e.ctrlKey) {
         switch (e.key.toLowerCase()) {
@@ -326,20 +353,6 @@ Press \`?\` for help
         return;
       }
       
-      // ? key (help)
-      if (e.key === '?' && !e.altKey) {
-        e.preventDefault();
-        toggleHelp();
-        return;
-      }
-      
-      // : key (command mode)
-      if (e.key === ':' && !e.altKey) {
-        e.preventDefault();
-        this.enterCommandMode();
-        return;
-      }
-      
       // Tab key
       if (e.key === 'Tab') {
         e.preventDefault();
@@ -361,6 +374,13 @@ Press \`?\` for help
     }
     
     // VIM mode (this.vimMode === true) processing below
+    
+    // Ctrl+` to switch to NOVIM mode
+    if (e.ctrlKey && e.code === 'Backquote') {
+      e.preventDefault();
+      this.setVimMode(false);
+      return;
+    }
     
     // Ctrl+[ as ESC
     if (e.ctrlKey && e.key === '[') {
@@ -595,6 +615,7 @@ Press \`?\` for help
       case '^': this.moveToFirstNonSpace(); break;
       case 'g': this.pendingKey = 'g'; break;
       case 'G': if (count > 1) this.gotoLine(count); else this.moveToEnd(); break;
+      case 'z': this.pendingKey = 'z'; break;
       
       // 行内検索 (f/F/t/T)
       case 'f': this.pendingKey = 'f'; break;
@@ -790,6 +811,21 @@ Press \`?\` for help
     switch(pending) {
       case 'g':
         if (key === 'g') this.moveToStart();
+        break;
+      
+      case 'z':
+        // z Enter, zt - cursor line to top
+        if (key === 'Enter' || key === 't') {
+          this.scrollCursorToTop();
+        }
+        // z. zz - cursor line to center
+        else if (key === '.' || key === 'z') {
+          this.scrollCursorToCenter();
+        }
+        // z- zb - cursor line to bottom
+        else if (key === '-' || key === 'b') {
+          this.scrollCursorToBottom();
+        }
         break;
         
       case 'd':
@@ -1308,6 +1344,10 @@ Press \`?\` for help
         break;
       case 'new!':
         this.newFile();
+        break;
+      case 'welcome':
+        // Show welcome screen
+        this.showWelcome();
         break;
       case 'set':
         if (parts[1] === 'nu' || parts[1] === 'number') {
@@ -3225,5 +3265,41 @@ Press \`?\` for help
     } else if (cursorTop > visibleBottom - lineHeight * 2) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight * 3 / 4;
     }
+  },
+  
+  // z Enter, zt - cursor line to top
+  scrollCursorToTop() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop;
+    this.updateCursorPos();
+  },
+  
+  // z. zz - cursor line to center
+  scrollCursorToCenter() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop - (this.editor.clientHeight / 2) + lineHeight;
+    this.updateCursorPos();
+  },
+  
+  // z- zb - cursor line to bottom
+  scrollCursorToBottom() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop - this.editor.clientHeight + lineHeight * 2;
+    this.updateCursorPos();
   }
 };

@@ -198,7 +198,12 @@ const VimEditor = {
     }
     
     // 4. 初回起動時のデフォルト内容
-    this.editor.value = `# mdvim v0.2.1 へようこそ！
+    this.editor.value = this.getWelcomeContent();
+  },
+  
+  // ウェルカムドキュメントを取得
+  getWelcomeContent() {
+    return `# mdvim v0.2.3 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -283,6 +288,20 @@ graph LR
 `;
   },
   
+  // ウェルカム画面を表示
+  showWelcome() {
+    this.saveState();
+    this.editor.value = this.getWelcomeContent();
+    this.filename = 'welcome.md';
+    this.filenameEl.textContent = this.filename;
+    this.modified = false;
+    this.updateFileStatus();
+    this.editor.selectionStart = 0;
+    this.editor.selectionEnd = 0;
+    this.onInput();
+    this.showStatus('ウェルカム画面を表示しました');
+  },
+  
   // マクロ記録
   recordKey(key, e) {
     if (this.recordingMacro && key !== 'q') {
@@ -293,6 +312,14 @@ graph LR
   handleKeydown(e) {
     // NOVIMモードの場合 - シンプルに処理
     if (this.vimMode !== true) {
+      
+      // Ctrl+` でVIMモードに切り替え
+      if (e.ctrlKey && e.code === 'Backquote') {
+        e.preventDefault();
+        this.setVimMode(true);
+        return;
+      }
+      
       // Ctrl+キーのショートカット
       if (e.ctrlKey) {
         switch (e.key.toLowerCase()) {
@@ -326,20 +353,6 @@ graph LR
         return;
       }
       
-      // ?キー（ヘルプ）
-      if (e.key === '?' && !e.altKey) {
-        e.preventDefault();
-        toggleHelp();
-        return;
-      }
-      
-      // :キー（コマンドモード）
-      if (e.key === ':' && !e.altKey) {
-        e.preventDefault();
-        this.enterCommandMode();
-        return;
-      }
-      
       // Tabキー
       if (e.key === 'Tab') {
         e.preventDefault();
@@ -361,6 +374,13 @@ graph LR
     }
     
     // 以下はVIMモード（this.vimMode === true）の処理
+    
+    // Ctrl+` でNOVIMモードに切り替え
+    if (e.ctrlKey && e.code === 'Backquote') {
+      e.preventDefault();
+      this.setVimMode(false);
+      return;
+    }
     
     // Ctrl+[ をESCとして扱う
     if (e.ctrlKey && e.key === '[') {
@@ -595,6 +615,7 @@ graph LR
       case '^': this.moveToFirstNonSpace(); break;
       case 'g': this.pendingKey = 'g'; break;
       case 'G': if (count > 1) this.gotoLine(count); else this.moveToEnd(); break;
+      case 'z': this.pendingKey = 'z'; break;
       
       // 行内検索 (f/F/t/T)
       case 'f': this.pendingKey = 'f'; break;
@@ -790,6 +811,21 @@ graph LR
     switch(pending) {
       case 'g':
         if (key === 'g') this.moveToStart();
+        break;
+      
+      case 'z':
+        // z Enter, zt - カーソル行を画面上部に
+        if (key === 'Enter' || key === 't') {
+          this.scrollCursorToTop();
+        }
+        // z. zz - カーソル行を画面中央に
+        else if (key === '.' || key === 'z') {
+          this.scrollCursorToCenter();
+        }
+        // z- zb - カーソル行を画面下部に
+        else if (key === '-' || key === 'b') {
+          this.scrollCursorToBottom();
+        }
         break;
         
       case 'd':
@@ -1308,6 +1344,10 @@ graph LR
         break;
       case 'new!':
         this.newFile();
+        break;
+      case 'welcome':
+        // ウェルカム画面を表示
+        this.showWelcome();
         break;
       case 'set':
         if (parts[1] === 'nu' || parts[1] === 'number') {
@@ -3225,5 +3265,41 @@ graph LR
     } else if (cursorTop > visibleBottom - lineHeight * 2) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight * 3 / 4;
     }
+  },
+  
+  // z Enter, zt - カーソル行を画面上部に
+  scrollCursorToTop() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop;
+    this.updateCursorPos();
+  },
+  
+  // z. zz - カーソル行を画面中央に
+  scrollCursorToCenter() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop - (this.editor.clientHeight / 2) + lineHeight;
+    this.updateCursorPos();
+  },
+  
+  // z- zb - カーソル行を画面下部に
+  scrollCursorToBottom() {
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const cursorTop = linesBeforeCursor * lineHeight;
+    
+    this.editor.scrollTop = cursorTop - this.editor.clientHeight + lineHeight * 2;
+    this.updateCursorPos();
   }
 };
