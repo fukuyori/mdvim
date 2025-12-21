@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.2.1 - Vim風マークダウンエディタ</title>
+  <title>mdvim v0.2.2 - Vim風マークダウンエディタ</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -807,7 +807,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.1</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.2</span></div>
     <div class="view-controls">
       <button id="btn-edit" class="active" onclick="setViewMode('edit')">編集</button>
       <button id="btn-preview" onclick="setViewMode('preview')">プレビュー</button>
@@ -1622,7 +1622,7 @@ const VimEditor = {
     }
     
     // 4. 初回起動時のデフォルト内容
-    this.editor.value = `# mdvim v0.2.1 へようこそ！
+    this.editor.value = `# mdvim v0.2.2 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -3406,10 +3406,16 @@ graph LR
   
   deleteChar() {
     const pos = this.editor.selectionStart;
-    if (pos < this.editor.value.length) {
-      this.editor.value = this.editor.value.substring(0, pos) + this.editor.value.substring(pos + 1);
+    const text = this.editor.value;
+    if (pos < text.length) {
+      // 改行を削除する場合も考慮
+      this.editor.value = text.substring(0, pos) + text.substring(pos + 1);
+      this.editor.selectionStart = pos;
+      this.editor.selectionEnd = pos;
       this.onInput();
     }
+    this.editor.focus();
+    this.updateCursorPos();
   },
   
   deleteCharBefore() {
@@ -3420,21 +3426,48 @@ graph LR
       this.editor.selectionEnd = pos - 1;
       this.onInput();
     }
+    this.editor.focus();
+    this.updateCursorPos();
   },
   
   deleteLine() {
     const text = this.editor.value;
+    if (text.length === 0) return; // 空のドキュメントは何もしない
+    
     const pos = this.editor.selectionStart;
     const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
     let lineEnd = text.indexOf('\n', pos);
-    if (lineEnd === -1) lineEnd = text.length;
-    else lineEnd++;
     
-    this.register = text.substring(lineStart, lineEnd);
-    this.editor.value = text.substring(0, lineStart) + text.substring(lineEnd);
-    this.editor.selectionStart = lineStart;
-    this.editor.selectionEnd = lineStart;
+    if (lineEnd === -1) {
+      // 最終行の場合
+      lineEnd = text.length;
+      // 前の行がある場合、前の改行も削除
+      if (lineStart > 0) {
+        this.register = text.substring(lineStart, lineEnd) + '\n';
+        this.editor.value = text.substring(0, lineStart - 1);
+        this.editor.selectionStart = Math.max(0, lineStart - 1);
+        this.editor.selectionEnd = this.editor.selectionStart;
+      } else {
+        // 1行目かつ最終行（ドキュメントに1行しかない）
+        this.register = text.substring(lineStart, lineEnd) + '\n';
+        this.editor.value = '';
+        this.editor.selectionStart = 0;
+        this.editor.selectionEnd = 0;
+      }
+    } else {
+      // 最終行ではない場合、改行も含めて削除
+      lineEnd++;
+      this.register = text.substring(lineStart, lineEnd);
+      this.editor.value = text.substring(0, lineStart) + text.substring(lineEnd);
+      // カーソル位置を調整（削除後のテキスト長を超えないように）
+      const newPos = Math.min(lineStart, this.editor.value.length);
+      this.editor.selectionStart = newPos;
+      this.editor.selectionEnd = newPos;
+    }
+    
+    this.editor.focus();
     this.onInput();
+    this.updateCursorPos();
   },
   
   deleteLineContent() {

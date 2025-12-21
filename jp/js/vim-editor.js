@@ -1979,10 +1979,15 @@ graph LR
   
   deleteChar() {
     const pos = this.editor.selectionStart;
-    if (pos < this.editor.value.length) {
-      this.editor.value = this.editor.value.substring(0, pos) + this.editor.value.substring(pos + 1);
+    const text = this.editor.value;
+    if (pos < text.length) {
+      this.editor.value = text.substring(0, pos) + text.substring(pos + 1);
+      this.editor.selectionStart = pos;
+      this.editor.selectionEnd = pos;
       this.onInput();
     }
+    this.editor.focus();
+    this.updateCursorPos();
   },
   
   deleteCharBefore() {
@@ -1993,21 +1998,43 @@ graph LR
       this.editor.selectionEnd = pos - 1;
       this.onInput();
     }
+    this.editor.focus();
+    this.updateCursorPos();
   },
   
   deleteLine() {
     const text = this.editor.value;
+    if (text.length === 0) return;
+    
     const pos = this.editor.selectionStart;
     const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
     let lineEnd = text.indexOf('\n', pos);
-    if (lineEnd === -1) lineEnd = text.length;
-    else lineEnd++;
     
-    this.register = text.substring(lineStart, lineEnd);
-    this.editor.value = text.substring(0, lineStart) + text.substring(lineEnd);
-    this.editor.selectionStart = lineStart;
-    this.editor.selectionEnd = lineStart;
+    if (lineEnd === -1) {
+      lineEnd = text.length;
+      if (lineStart > 0) {
+        this.register = text.substring(lineStart, lineEnd) + '\n';
+        this.editor.value = text.substring(0, lineStart - 1);
+        this.editor.selectionStart = Math.max(0, lineStart - 1);
+        this.editor.selectionEnd = this.editor.selectionStart;
+      } else {
+        this.register = text.substring(lineStart, lineEnd) + '\n';
+        this.editor.value = '';
+        this.editor.selectionStart = 0;
+        this.editor.selectionEnd = 0;
+      }
+    } else {
+      lineEnd++;
+      this.register = text.substring(lineStart, lineEnd);
+      this.editor.value = text.substring(0, lineStart) + text.substring(lineEnd);
+      const newPos = Math.min(lineStart, this.editor.value.length);
+      this.editor.selectionStart = newPos;
+      this.editor.selectionEnd = newPos;
+    }
+    
+    this.editor.focus();
     this.onInput();
+    this.updateCursorPos();
   },
   
   deleteLineContent() {
