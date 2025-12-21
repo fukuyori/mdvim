@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.2.3 - Vim風マークダウンエディタ</title>
+  <title>mdvim v0.2.4 - Vim風マークダウンエディタ</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -807,7 +807,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.3</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.4</span></div>
     <div class="view-controls">
       <button id="btn-edit" class="active" onclick="setViewMode('edit')">編集</button>
       <button id="btn-preview" onclick="setViewMode('preview')">プレビュー</button>
@@ -1627,7 +1627,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.2.3 へようこそ！
+    return `# mdvim v0.2.4 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -1716,13 +1716,17 @@ graph LR
   showWelcome() {
     this.saveState();
     this.editor.value = this.getWelcomeContent();
-    this.filename = 'welcome.md';
-    this.filenameEl.textContent = this.filename;
+    this.fileName.textContent = 'welcome.md';
+    this.currentFileName = 'welcome.md';
     this.modified = false;
     this.updateFileStatus();
+    this.updateLineNumbers();
+    this.updatePreview();
+    this.updateToc();
+    this.updateHeadingHighlight();
     this.editor.selectionStart = 0;
     this.editor.selectionEnd = 0;
-    this.onInput();
+    this.updateCursorPos();
     this.showStatus('ウェルカム画面を表示しました');
   },
   

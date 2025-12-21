@@ -203,7 +203,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.2.3 へようこそ！
+    return `# mdvim v0.2.4 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -292,13 +292,17 @@ graph LR
   showWelcome() {
     this.saveState();
     this.editor.value = this.getWelcomeContent();
-    this.filename = 'welcome.md';
-    this.filenameEl.textContent = this.filename;
+    this.fileName.textContent = 'welcome.md';
+    this.currentFileName = 'welcome.md';
     this.modified = false;
     this.updateFileStatus();
+    this.updateLineNumbers();
+    this.updatePreview();
+    this.updateToc();
+    this.updateHeadingHighlight();
     this.editor.selectionStart = 0;
     this.editor.selectionEnd = 0;
-    this.onInput();
+    this.updateCursorPos();
     this.showStatus('ウェルカム画面を表示しました');
   },
   

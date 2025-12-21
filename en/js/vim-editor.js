@@ -203,7 +203,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.2.3!
+    return `# Welcome to mdvim v0.2.4!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -292,13 +292,17 @@ Press \`?\` for help
   showWelcome() {
     this.saveState();
     this.editor.value = this.getWelcomeContent();
-    this.filename = 'welcome.md';
-    this.filenameEl.textContent = this.filename;
+    this.fileName.textContent = 'welcome.md';
+    this.currentFileName = 'welcome.md';
     this.modified = false;
     this.updateFileStatus();
+    this.updateLineNumbers();
+    this.updatePreview();
+    this.updateToc();
+    this.updateHeadingHighlight();
     this.editor.selectionStart = 0;
     this.editor.selectionEnd = 0;
-    this.onInput();
+    this.updateCursorPos();
     this.showStatus('Welcome screen displayed');
   },
   

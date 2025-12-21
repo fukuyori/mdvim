@@ -358,7 +358,12 @@ All loaded via CDN (no build required):
 
 ## 📝 Changelog
 
-### v0.2.3
+### v0.2.4
+- ✨ Added `Ctrl+`` to toggle VIM/NOVIM mode
+- 🔧 NOVIM mode: `:` and `?` now input normally as text
+- 🐛 Fixed `:welcome` not updating TOC and preview
+
+### v0.2.4
 - ✨ Added `z` commands for screen scrolling (`zt`, `zz`, `zb`, `z Enter`, `z.`, `z-`)
 - ✨ Added `:welcome` command to display welcome screen
 - 🐛 Fixed focus loss when pressing `x` at beginning of first line
