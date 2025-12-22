@@ -211,7 +211,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.3.3 へようこそ！
+    return `# mdvim v0.3.4 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -2298,6 +2298,18 @@ graph LR
     
     this.register = text.substring(pos, lineEnd);
     this.editor.value = text.substring(0, pos) + text.substring(lineEnd);
+    
+    // カーソル位置を設定（削除開始位置に留まる）
+    const newText = this.editor.value;
+    const lineStart = newText.lastIndexOf('\n', pos - 1) + 1;
+    let newLineEnd = newText.indexOf('\n', lineStart);
+    if (newLineEnd === -1) newLineEnd = newText.length;
+    
+    // 行末を超えないように調整
+    const newPos = Math.min(pos, Math.max(lineStart, newLineEnd - 1));
+    this.editor.selectionStart = Math.max(lineStart, newPos);
+    this.editor.selectionEnd = Math.max(lineStart, newPos);
+    
     this.onInput();
   },
   

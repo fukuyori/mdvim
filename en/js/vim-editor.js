@@ -211,7 +211,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.3.3!
+    return `# Welcome to mdvim v0.3.4!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -2298,6 +2298,18 @@ Press \`?\` for help
     
     this.register = text.substring(pos, lineEnd);
     this.editor.value = text.substring(0, pos) + text.substring(lineEnd);
+    
+    // Set cursor position (stay at deletion start)
+    const newText = this.editor.value;
+    const lineStart = newText.lastIndexOf('\n', pos - 1) + 1;
+    let newLineEnd = newText.indexOf('\n', lineStart);
+    if (newLineEnd === -1) newLineEnd = newText.length;
+    
+    // Adjust to not exceed line end
+    const newPos = Math.min(pos, Math.max(lineStart, newLineEnd - 1));
+    this.editor.selectionStart = Math.max(lineStart, newPos);
+    this.editor.selectionEnd = Math.max(lineStart, newPos);
+    
     this.onInput();
   },
   
