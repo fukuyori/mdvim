@@ -12,6 +12,8 @@ const VimEditor = {
   redoStack: [],
   visualStart: null,
   visualLine: false,
+  visualCursor: null,    // ビジュアルラインモードでの実際のカーソル位置
+  visualStartLine: -1,   // ビジュアルラインモードでの開始行番号
   count: '',
   pendingKey: '',
   pendingOperator: '',
@@ -214,7 +216,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.2.5 へようこそ！
+    return `# mdvim v0.2.6 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -710,6 +712,10 @@ graph LR
         this.visualLine = false; 
         break;
       case 'V': 
+        this.visualCursor = this.editor.selectionStart;  // カーソル位置を保存
+        // 開始行番号を計算
+        const textBeforeCursor = this.editor.value.substring(0, this.editor.selectionStart);
+        this.visualStartLine = textBeforeCursor.split('\n').length - 1;
         this.setMode('visual'); 
         this.selectCurrentLine(); 
         this.visualLine = true; 
@@ -1267,6 +1273,8 @@ graph LR
     if (key === 'Escape' || (e.ctrlKey && key === '[')) {
       this.setMode('normal');
       this.editor.selectionEnd = this.editor.selectionStart;
+      this.visualCursor = null;
+      this.visualStartLine = -1;
       return;
     }
     
@@ -1274,9 +1282,11 @@ graph LR
     const end = Math.max(this.visualStart, this.editor.selectionEnd);
     
     // ビジュアルモードでの実際のカーソル位置を取得
-    // visualStartの反対側がカーソル位置
     let cursorPos;
-    if (this.editor.selectionStart < this.visualStart) {
+    if (this.visualLine && this.visualCursor !== null) {
+      // ビジュアルラインモードでは保存したカーソル位置を使用
+      cursorPos = this.visualCursor;
+    } else if (this.editor.selectionStart < this.visualStart) {
       cursorPos = this.editor.selectionStart;
     } else {
       cursorPos = this.editor.selectionEnd;
@@ -1359,13 +1369,33 @@ graph LR
     if (this.mode === 'visual') {
       const newCurPos = this.editor.selectionStart;
       if (this.visualLine) {
+        // ビジュアルラインモード: 行番号ベースで選択範囲を計算
+        this.visualCursor = newCurPos;
         const text = this.editor.value;
-        const startLine = text.lastIndexOf('\n', Math.min(this.visualStart, newCurPos) - 1) + 1;
-        let endLine = text.indexOf('\n', Math.max(this.visualStart, newCurPos));
-        if (endLine === -1) endLine = text.length;
-        else endLine++;
-        this.editor.selectionStart = startLine;
-        this.editor.selectionEnd = endLine;
+        const allLines = text.split('\n');
+        
+        // 現在のカーソル行を計算
+        const textBeforeCursor = text.substring(0, newCurPos);
+        const currentLine = textBeforeCursor.split('\n').length - 1;
+        
+        // 開始行と終了行を決定
+        const fromLine = Math.min(this.visualStartLine, currentLine);
+        const toLine = Math.max(this.visualStartLine, currentLine);
+        
+        // 行の開始・終了位置を計算
+        let startPos = 0;
+        for (let i = 0; i < fromLine; i++) {
+          startPos += allLines[i].length + 1;
+        }
+        let endPos = startPos;
+        for (let i = fromLine; i <= toLine; i++) {
+          endPos += allLines[i].length + 1;
+        }
+        // 最後の行に改行がない場合の調整
+        if (endPos > text.length) endPos = text.length;
+        
+        this.editor.selectionStart = startPos;
+        this.editor.selectionEnd = endPos;
       } else {
         this.editor.selectionStart = Math.min(this.visualStart, newCurPos);
         this.editor.selectionEnd = Math.max(this.visualStart, newCurPos);

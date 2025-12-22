@@ -12,6 +12,8 @@ const VimEditor = {
   redoStack: [],
   visualStart: null,
   visualLine: false,
+  visualCursor: null,    // Actual cursor position in visual line mode
+  visualStartLine: -1,   // Starting line number in visual line mode
   count: '',
   pendingKey: '',
   pendingOperator: '',
@@ -214,7 +216,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.2.5!
+    return `# Welcome to mdvim v0.2.6!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -710,6 +712,10 @@ Press \`?\` for help
         this.visualLine = false; 
         break;
       case 'V': 
+        this.visualCursor = this.editor.selectionStart;  // Save cursor position
+        // Calculate starting line number
+        const textBeforeCursor = this.editor.value.substring(0, this.editor.selectionStart);
+        this.visualStartLine = textBeforeCursor.split('\n').length - 1;
         this.setMode('visual'); 
         this.selectCurrentLine(); 
         this.visualLine = true; 
@@ -1267,6 +1273,8 @@ Press \`?\` for help
     if (key === 'Escape' || (e.ctrlKey && key === '[')) {
       this.setMode('normal');
       this.editor.selectionEnd = this.editor.selectionStart;
+      this.visualCursor = null;
+      this.visualStartLine = -1;
       return;
     }
     
@@ -1274,9 +1282,11 @@ Press \`?\` for help
     const end = Math.max(this.visualStart, this.editor.selectionEnd);
     
     // Get actual cursor position in visual mode
-    // Cursor is on the opposite side of visualStart
     let cursorPos;
-    if (this.editor.selectionStart < this.visualStart) {
+    if (this.visualLine && this.visualCursor !== null) {
+      // In visual line mode, use saved cursor position
+      cursorPos = this.visualCursor;
+    } else if (this.editor.selectionStart < this.visualStart) {
       cursorPos = this.editor.selectionStart;
     } else {
       cursorPos = this.editor.selectionEnd;
@@ -1359,13 +1369,33 @@ Press \`?\` for help
     if (this.mode === 'visual') {
       const newCurPos = this.editor.selectionStart;
       if (this.visualLine) {
+        // Visual line mode: calculate selection based on line numbers
+        this.visualCursor = newCurPos;
         const text = this.editor.value;
-        const startLine = text.lastIndexOf('\n', Math.min(this.visualStart, newCurPos) - 1) + 1;
-        let endLine = text.indexOf('\n', Math.max(this.visualStart, newCurPos));
-        if (endLine === -1) endLine = text.length;
-        else endLine++;
-        this.editor.selectionStart = startLine;
-        this.editor.selectionEnd = endLine;
+        const allLines = text.split('\n');
+        
+        // Calculate current cursor line
+        const textBeforeCursor = text.substring(0, newCurPos);
+        const currentLine = textBeforeCursor.split('\n').length - 1;
+        
+        // Determine start and end lines
+        const fromLine = Math.min(this.visualStartLine, currentLine);
+        const toLine = Math.max(this.visualStartLine, currentLine);
+        
+        // Calculate line start/end positions
+        let startPos = 0;
+        for (let i = 0; i < fromLine; i++) {
+          startPos += allLines[i].length + 1;
+        }
+        let endPos = startPos;
+        for (let i = fromLine; i <= toLine; i++) {
+          endPos += allLines[i].length + 1;
+        }
+        // Adjust if last line has no newline
+        if (endPos > text.length) endPos = text.length;
+        
+        this.editor.selectionStart = startPos;
+        this.editor.selectionEnd = endPos;
       } else {
         this.editor.selectionStart = Math.min(this.visualStart, newCurPos);
         this.editor.selectionEnd = Math.max(this.visualStart, newCurPos);

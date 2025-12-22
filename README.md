@@ -11,7 +11,7 @@
     <a href="#license">License</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.2.5-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.2.6-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/no%20install-required-brightgreen.svg" alt="No Install">
@@ -379,6 +379,11 @@ All loaded via CDN (no build required):
 - [highlight.js](https://highlightjs.org/) v11.9.0 — Syntax highlighting
 
 ## 📝 Changelog
+
+### v0.2.6
+- ✨ Auto-indent on Enter (inherits list markers and indentation)
+- ✨ Tab key changes list hierarchy (Tab: deeper, Shift+Tab: shallower)
+- 🐛 Fixed visual line mode (V) j/k movement to move exactly one line
 
 ### v0.2.5
 - ✨ Added nested list support (indented bullet/numbered lists)
