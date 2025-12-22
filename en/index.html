@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.3.1 - Vim-style Markdown Editor</title>
+  <title>mdvim v0.3.2 - Vim-style Markdown Editor</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -13,11 +13,11 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3.1</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3.2</span></div>
     <div class="view-controls">
-      <button id="btn-edit" class="active" onclick="setViewMode('edit')">Edit</button>
+      <button id="btn-edit" onclick="setViewMode('edit')">Edit</button>
       <button id="btn-preview" onclick="setViewMode('preview')">Preview</button>
-      <button id="btn-split" onclick="setViewMode('split')">Split</button>
+      <button id="btn-split" class="active" onclick="setViewMode('split')">Split</button>
       <span style="margin: 0 0.5rem; color: var(--border);">|</span>
       <button id="btn-theme-dark" class="active" onclick="setTheme('dark')">🌙</button>
       <button id="btn-theme-light" onclick="setTheme('light')">☀️</button>

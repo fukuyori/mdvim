@@ -216,7 +216,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.3.1 へようこそ！
+    return `# mdvim v0.3.2 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
