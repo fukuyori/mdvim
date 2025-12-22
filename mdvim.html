@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.3 - Vim-style Markdown Editor</title>
+  <title>mdvim v0.3.1 - Vim-style Markdown Editor</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -808,7 +808,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3.1</span></div>
     <div class="view-controls">
       <button id="btn-edit" class="active" onclick="setViewMode('edit')">Edit</button>
       <button id="btn-preview" onclick="setViewMode('preview')">Preview</button>
@@ -1700,7 +1700,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.3!
+    return `# Welcome to mdvim v0.3.1!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -4982,9 +4982,11 @@ Press \`?\` for help
     }
   },
   
-  // カーソル位置にスクロール
+  // Scroll to cursor position
   scrollToCursor() {
-    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const style = getComputedStyle(this.editor);
+    const lineHeight = parseFloat(style.lineHeight);
+    const paddingLeft = parseFloat(style.paddingLeft);
     const text = this.editor.value;
     
     // Visual mode: cursor is on opposite side of visualStart
@@ -4999,17 +5001,38 @@ Press \`?\` for help
       pos = this.editor.selectionStart;
     }
     
-    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const lines = text.substring(0, pos).split('\n');
+    const linesBeforeCursor = lines.length - 1;
     const cursorTop = linesBeforeCursor * lineHeight;
     
+    // === Vertical scroll ===
     const visibleTop = this.editor.scrollTop;
     const visibleBottom = visibleTop + this.editor.clientHeight;
     
-    // カーソルが見えない場合、中央付近にスクロール
     if (cursorTop < visibleTop) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight / 4;
     } else if (cursorTop > visibleBottom - lineHeight * 2) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight * 3 / 4;
+    }
+    
+    // === Horizontal scroll ===
+    const currentLineText = lines[lines.length - 1];
+    
+    // Measure text width
+    this.measureSpan.textContent = currentLineText || 'M';
+    const textWidth = this.measureSpan.getBoundingClientRect().width;
+    const cursorLeft = currentLineText.length > 0 ? textWidth : 0;
+    
+    const visibleLeft = this.editor.scrollLeft;
+    const visibleRight = visibleLeft + this.editor.clientWidth - paddingLeft - 20;
+    
+    // Cursor beyond right edge
+    if (cursorLeft > visibleRight) {
+      this.editor.scrollLeft = cursorLeft - this.editor.clientWidth + paddingLeft + 100;
+    }
+    // Cursor before left edge
+    else if (cursorLeft < visibleLeft) {
+      this.editor.scrollLeft = Math.max(0, cursorLeft - 50);
     }
   },
   

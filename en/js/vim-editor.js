@@ -216,7 +216,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.3!
+    return `# Welcome to mdvim v0.3.1!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -3497,7 +3497,9 @@ Press \`?\` for help
   
   // Scroll to cursor position
   scrollToCursor() {
-    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
+    const style = getComputedStyle(this.editor);
+    const lineHeight = parseFloat(style.lineHeight);
+    const paddingLeft = parseFloat(style.paddingLeft);
     const text = this.editor.value;
     
     // Visual mode: cursor is on opposite side of visualStart
@@ -3512,17 +3514,38 @@ Press \`?\` for help
       pos = this.editor.selectionStart;
     }
     
-    const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
+    const lines = text.substring(0, pos).split('\n');
+    const linesBeforeCursor = lines.length - 1;
     const cursorTop = linesBeforeCursor * lineHeight;
     
+    // === Vertical scroll ===
     const visibleTop = this.editor.scrollTop;
     const visibleBottom = visibleTop + this.editor.clientHeight;
     
-    // Scroll if cursor is not visible
     if (cursorTop < visibleTop) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight / 4;
     } else if (cursorTop > visibleBottom - lineHeight * 2) {
       this.editor.scrollTop = cursorTop - this.editor.clientHeight * 3 / 4;
+    }
+    
+    // === Horizontal scroll ===
+    const currentLineText = lines[lines.length - 1];
+    
+    // Measure text width
+    this.measureSpan.textContent = currentLineText || 'M';
+    const textWidth = this.measureSpan.getBoundingClientRect().width;
+    const cursorLeft = currentLineText.length > 0 ? textWidth : 0;
+    
+    const visibleLeft = this.editor.scrollLeft;
+    const visibleRight = visibleLeft + this.editor.clientWidth - paddingLeft - 20;
+    
+    // Cursor beyond right edge
+    if (cursorLeft > visibleRight) {
+      this.editor.scrollLeft = cursorLeft - this.editor.clientWidth + paddingLeft + 100;
+    }
+    // Cursor before left edge
+    else if (cursorLeft < visibleLeft) {
+      this.editor.scrollLeft = Math.max(0, cursorLeft - 50);
     }
   },
   
