@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.3.2 - Vim風マークダウンエディタ</title>
+  <title>mdvim v0.3.3 - Vim風マークダウンエディタ</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -537,34 +537,6 @@ body {
 #toc-open-btn.hidden {
   display: none;
 }
-
-/* 見出し行ハイライト */
-#heading-highlight {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  overflow: hidden;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.heading-text-overlay {
-  position: absolute;
-  white-space: pre;
-  line-height: 1.5;
-}
-
-.heading-text-overlay.h1 { color: var(--heading-h1); }
-.heading-text-overlay.h2 { color: var(--heading-h2); }
-.heading-text-overlay.h3 { color: var(--heading-h3); }
-.heading-text-overlay.h4 { color: var(--heading-h4); }
-.heading-text-overlay.h5 { color: var(--heading-h5); }
-.heading-text-overlay.h6 { color: var(--heading-h6); }
-
 #preview-content blockquote { border-left: 4px solid var(--accent); padding-left: 1rem; margin: 0.8rem 0; color: var(--text-secondary); font-style: italic; }
 #preview-content hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 #preview-content a { color: var(--accent); text-decoration: none; }
@@ -808,7 +780,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3.2</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3.3</span></div>
     <div class="view-controls">
       <button id="btn-edit" onclick="setViewMode('edit')">編集</button>
       <button id="btn-preview" onclick="setViewMode('preview')">プレビュー</button>
@@ -1550,11 +1522,6 @@ const VimEditor = {
     this.tocOpenBtn = document.getElementById('toc-open-btn');
     this.tocVisible = true;
     
-    // 見出しハイライトオーバーレイ
-    this.headingHighlight = document.createElement('div');
-    this.headingHighlight.id = 'heading-highlight';
-    document.getElementById('editor-wrapper').appendChild(this.headingHighlight);
-    
     // フォントサイズ（%）- これは全タブ共通でOK
     this.fontSize = parseInt(localStorage.getItem('vim-md-font-size')) || 100;
     this.applyFontSize();
@@ -1589,7 +1556,6 @@ const VimEditor = {
     this.updateLineNumbers();
     this.updatePreview();
     this.updateToc();
-    this.updateHeadingHighlight();
     this.saveState();
     this.updateCursorOverlay();
     
@@ -1620,7 +1586,6 @@ const VimEditor = {
     this.editor.addEventListener('scroll', () => {
       this.lineNumbers.scrollTop = this.editor.scrollTop;
       this.updateCursorOverlay();
-      this.updateHeadingHighlight();
     });
   },
   
@@ -1701,7 +1666,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.3.2 へようこそ！
+    return `# mdvim v0.3.3 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -1802,7 +1767,6 @@ graph LR
     this.updateLineNumbers();
     this.updatePreview();
     this.updateToc();
-    this.updateHeadingHighlight();
     this.editor.selectionStart = 0;
     this.editor.selectionEnd = 0;
     this.updateCursorPos();
@@ -4161,7 +4125,6 @@ graph LR
         this.updateLineNumbers();
         this.updatePreview();
         this.updateToc();  // 目次更新
-        this.updateHeadingHighlight();  // 見出しハイライト更新
         this.editor.selectionStart = 0;
         this.editor.selectionEnd = 0;
         this.updateCursorPos();
@@ -4191,7 +4154,6 @@ graph LR
     this.updateLineNumbers();
     this.updatePreview();
     this.updateToc();  // 目次更新
-    this.updateHeadingHighlight();  // 見出しハイライト更新
     this.editor.selectionStart = 0;
     this.editor.selectionEnd = 0;
     this.updateCursorPos();
@@ -4256,7 +4218,6 @@ graph LR
         this.updateLineNumbers();
         this.updatePreview();
         this.updateToc();  // 目次更新
-        this.updateHeadingHighlight();  // 見出しハイライト更新
         this.editor.selectionStart = 0;
         this.editor.selectionEnd = 0;
         this.updateCursorPos();
@@ -4324,7 +4285,6 @@ graph LR
       this.updateLineNumbers();
       this.updatePreview();
       this.updateToc();
-      this.updateHeadingHighlight();
     }, 150);
     
     // 挿入モードでのテキスト追跡
@@ -4543,14 +4503,8 @@ graph LR
       this.fontSizeDisplay.textContent = `${this.fontSize}%`;
     }
     
-    // 見出しハイライトのフォントサイズも更新
-    if (this.headingHighlight) {
-      this.headingHighlight.style.fontSize = `${baseFontSize}rem`;
-    }
-    
     // 初期化完了後のみ表示を更新
     if (this.initialized) {
-      this.updateHeadingHighlight();
       this.updateCursorOverlay();
     }
   },
@@ -4738,51 +4692,6 @@ graph LR
       // 目次内でアクティブ項目が見えるようにスクロール
       activeItem.scrollIntoView({ block: 'nearest' });
     }
-  },
-  
-  // 見出し行のハイライト更新
-  // 見出し行のハイライト更新
-  updateHeadingHighlight() {
-    if (!this.headingHighlight) return;
-    
-    const lines = this.editor.value.split('\n');
-    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
-    const paddingTop = parseFloat(getComputedStyle(this.editor).paddingTop);
-    const paddingLeft = parseFloat(getComputedStyle(this.editor).paddingLeft);
-    const scrollTop = this.editor.scrollTop;
-    const scrollLeft = this.editor.scrollLeft;
-    
-    let html = '';
-    let inCodeBlock = false;
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      
-      if (line.trim().startsWith('```')) {
-        inCodeBlock = !inCodeBlock;
-        continue;
-      }
-      if (inCodeBlock) continue;
-      
-      const match = line.match(/^(#{1,6})\s+/);
-      if (match) {
-        const level = match[1].length;
-        const top = paddingTop + i * lineHeight - scrollTop;
-        
-        // 画面内の行のみ表示
-        if (top > -lineHeight && top < this.editor.clientHeight + lineHeight) {
-          // テキストをエスケープ
-          const escapedLine = line
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-          
-          html += `<div class="heading-text-overlay h${level}" style="top: ${top}px; left: ${paddingLeft - scrollLeft}px;">${escapedLine}</div>`;
-        }
-      }
-    }
-    
-    this.headingHighlight.innerHTML = html;
   },
   
   // プレビューの見出し折り畳み機能

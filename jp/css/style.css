@@ -627,33 +627,6 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
   display: none;
 }
 
-/* 見出し行ハイライト */
-#heading-highlight {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  overflow: hidden;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.heading-text-overlay {
-  position: absolute;
-  white-space: pre;
-  line-height: 1.5;
-}
-
-.heading-text-overlay.h1 { color: var(--heading-h1); }
-.heading-text-overlay.h2 { color: var(--heading-h2); }
-.heading-text-overlay.h3 { color: var(--heading-h3); }
-.heading-text-overlay.h4 { color: var(--heading-h4); }
-.heading-text-overlay.h5 { color: var(--heading-h5); }
-.heading-text-overlay.h6 { color: var(--heading-h6); }
-
 /* タスクリスト */
 .task-list {
   list-style: none;
