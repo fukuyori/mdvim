@@ -11,7 +11,7 @@
     <a href="#ライセンス">ライセンス</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.3.4-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.3.5-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/インストール-不要-brightgreen.svg" alt="No Install">
@@ -380,8 +380,9 @@ mdvim/
 
 ## 📝 更新履歴
 
-### v0.3.4
+### v0.3.5
 - 🐛 Dコマンド（行末まで削除）後のカーソル位置を修正
+- 🐛 分割版の構文エラーを修正
 
 ### v0.3.3
 - 🚀 パフォーマンス改善：エディタ内の見出しハイライトを廃止

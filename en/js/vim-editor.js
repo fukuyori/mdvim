@@ -65,7 +65,6 @@ const VimEditor = {
     this.tocOpenBtn = document.getElementById('toc-open-btn');
     this.tocVisible = true;
     
-    // 見出しハイライトオーバーレイ
     
     // フォントサイズ（%）- これは全タブ共通でOK
     this.fontSize = parseInt(localStorage.getItem('vim-md-font-size')) || 100;
@@ -211,7 +210,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.3.4!
+    return `# Welcome to mdvim v0.3.5!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -3050,9 +3049,6 @@ Press \`?\` for help
     
     if (this.fontSizeDisplay) {
       this.fontSizeDisplay.textContent = `${this.fontSize}%`;
-    }
-    
-    // 見出しハイライトのフォントサイズも更新
     }
     
     // 初期化完了後のみ表示を更新
