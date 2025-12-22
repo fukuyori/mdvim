@@ -210,7 +210,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.3.5!
+    return `# Welcome to mdvim v0.3.6!
 
 **mdvim** is a Vim-style Markdown editor.
 

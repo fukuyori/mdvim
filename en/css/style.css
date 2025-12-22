@@ -122,10 +122,10 @@ body {
 #macro-indicator { color: var(--accent-purple); font-weight: bold; display: none; }
 #macro-indicator.active { display: inline; }
 
-#main-container { flex: 1; display: flex; overflow: hidden; }
-.pane { flex: 1; display: flex; overflow: hidden; position: relative; }
+#main-container { flex: 1 1 0; display: flex; overflow: hidden; }
+.pane { flex: 1 1 0; display: flex; overflow: hidden; position: relative; }
 #editor-pane { border-right: 1px solid var(--border); flex-direction: column; }
-#editor-content { display: flex; flex: 1; overflow: hidden; }
+#editor-content { display: flex; flex: 1 1 0; overflow: hidden; }
 
 #line-numbers {
   min-width: 3rem;
@@ -212,15 +212,18 @@ body {
 
 #preview-pane { 
   background: var(--bg-primary); 
-  display: flex;
-  flex-direction: column;
+  position: relative;
   overflow: hidden;
 }
 
 #preview-content { 
-  flex: 1;
+  position: absolute;
+  top: 42px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow: auto;
-  padding: 1.5rem; 
+  padding: 1.5rem;
 }
 
 #preview-content h1 { font-size: 2rem; margin: 1rem 0 0.5rem; color: var(--heading-h1); border-bottom: 2px solid var(--border); padding-bottom: 0.3rem; }
@@ -441,12 +444,16 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 
 /* プレビューコントロールバー */
 #preview-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   gap: 0.5rem;
   padding: 0.5rem;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  z-index: 1;
 }
 
 #preview-controls button {
