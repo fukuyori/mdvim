@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.2.6 - Vim-style Markdown Editor</title>
+  <title>mdvim v0.3 - Vim-style Markdown Editor</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -808,7 +808,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.6</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3</span></div>
     <div class="view-controls">
       <button id="btn-edit" class="active" onclick="setViewMode('edit')">Edit</button>
       <button id="btn-preview" onclick="setViewMode('preview')">Preview</button>
@@ -1700,7 +1700,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.2.6!
+    return `# Welcome to mdvim v0.3!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -4306,13 +4306,20 @@ Press \`?\` for help
   onInput(e) {
     this.modified = true;
     this.updateFileStatus();
-    this.updateLineNumbers();
-    this.updatePreview();
-    this.updateToc();
-    this.updateHeadingHighlight();
+    
+    // Light processing runs immediately
     this.updateCursorPos();
     
-    // 挿入モードでのテキスト追跡
+    // Heavy processing is debounced (150ms)
+    clearTimeout(this.heavyUpdateTimer);
+    this.heavyUpdateTimer = setTimeout(() => {
+      this.updateLineNumbers();
+      this.updatePreview();
+      this.updateToc();
+      this.updateHeadingHighlight();
+    }, 150);
+    
+    // Track text in insert mode
     if (this.mode === 'insert' && e && e.data) {
       this.lastEditText += e.data;
     }

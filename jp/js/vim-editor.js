@@ -216,7 +216,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.2.6 へようこそ！
+    return `# mdvim v0.3 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -2821,11 +2821,18 @@ graph LR
   onInput(e) {
     this.modified = true;
     this.updateFileStatus();
-    this.updateLineNumbers();
-    this.updatePreview();
-    this.updateToc();
-    this.updateHeadingHighlight();
+    
+    // 軽い処理は即座に実行
     this.updateCursorPos();
+    
+    // 重い処理はデバウンス（150ms）
+    clearTimeout(this.heavyUpdateTimer);
+    this.heavyUpdateTimer = setTimeout(() => {
+      this.updateLineNumbers();
+      this.updatePreview();
+      this.updateToc();
+      this.updateHeadingHighlight();
+    }, 150);
     
     // 挿入モードでのテキスト追跡
     if (this.mode === 'insert' && e && e.data) {

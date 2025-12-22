@@ -216,7 +216,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.2.6!
+    return `# Welcome to mdvim v0.3!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -2821,11 +2821,18 @@ Press \`?\` for help
   onInput(e) {
     this.modified = true;
     this.updateFileStatus();
-    this.updateLineNumbers();
-    this.updatePreview();
-    this.updateToc();
-    this.updateHeadingHighlight();
+    
+    // Light processing runs immediately
     this.updateCursorPos();
+    
+    // Heavy processing is debounced (150ms)
+    clearTimeout(this.heavyUpdateTimer);
+    this.heavyUpdateTimer = setTimeout(() => {
+      this.updateLineNumbers();
+      this.updatePreview();
+      this.updateToc();
+      this.updateHeadingHighlight();
+    }, 150);
     
     // Track text in insert mode
     if (this.mode === 'insert' && e && e.data) {
