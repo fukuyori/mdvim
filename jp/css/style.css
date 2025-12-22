@@ -133,7 +133,7 @@ body {
   color: var(--text-secondary);
   text-align: right;
   padding: 0.5rem 0.5rem 0.5rem 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   line-height: 1.5;
   overflow: hidden;
   user-select: none;
@@ -144,12 +144,12 @@ body {
   display: block;
 }
 
-#line-numbers .heading-h1 { color: var(--heading-h1); font-weight: bold; }
-#line-numbers .heading-h2 { color: var(--heading-h2); font-weight: bold; }
-#line-numbers .heading-h3 { color: var(--heading-h3); font-weight: bold; }
-#line-numbers .heading-h4 { color: var(--heading-h4); font-weight: bold; }
-#line-numbers .heading-h5 { color: var(--heading-h5); font-weight: bold; }
-#line-numbers .heading-h6 { color: var(--heading-h6); font-weight: bold; }
+#line-numbers .heading-h1 { color: var(--heading-h1); }
+#line-numbers .heading-h2 { color: var(--heading-h2); }
+#line-numbers .heading-h3 { color: var(--heading-h3); }
+#line-numbers .heading-h4 { color: var(--heading-h4); }
+#line-numbers .heading-h5 { color: var(--heading-h5); }
+#line-numbers .heading-h6 { color: var(--heading-h6); }
 
 #editor-wrapper {
   flex: 1;
@@ -638,12 +638,13 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
   overflow: hidden;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .heading-text-overlay {
   position: absolute;
   white-space: pre;
-  font-weight: bold;
+  line-height: 1.5;
 }
 
 .heading-text-overlay.h1 { color: var(--heading-h1); }

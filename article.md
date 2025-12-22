@@ -21,7 +21,7 @@ mdvimを使い始めるのはとても簡単です。
 **方法1：GitHubからダウンロード**
 
 ```bash
-git clone https://github.com/yourusername/mdvim.git
+git clone https://github.com/fukuyori/mdvim.git
 cd mdvim
 ```
 

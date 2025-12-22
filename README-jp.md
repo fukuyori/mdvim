@@ -11,7 +11,7 @@
     <a href="#ライセンス">ライセンス</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.2.2-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.2.5-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/インストール-不要-brightgreen.svg" alt="No Install">
@@ -79,7 +79,7 @@
 ### 方法1: ダウンロードして開く
 ```bash
 # リポジトリをクローン
-git clone https://github.com/yourusername/mdvim.git
+git clone https://github.com/fukuyori/mdvim.git
 
 # ブラウザで開く
 open mdvim/mdvim-jp.html     # 日本語版
@@ -212,6 +212,28 @@ open mdvim/mdvim.html        # 英語版
 | `:q` | 終了（未保存なら警告） |
 | `:q!` | 強制終了 |
 | `:wq` | 保存して終了 |
+
+</details>
+
+<details>
+<summary><strong>⚙️ 設定コマンド</strong></summary>
+
+| コマンド | 動作 |
+|---------|------|
+| `:set vim` | VIMモードを有効化 |
+| `:set novim` | NOVIMモードに切り替え |
+| `:set nu` | 行番号を表示 |
+| `:set nonu` | 行番号を非表示 |
+| `:set theme=dark` | ダークテーマに変更 |
+| `:set theme=light` | ライトテーマに変更 |
+| `:set theme=original` | レトロCRTテーマに変更 |
+| `:set autosave` | 現在の自動保存設定を表示 |
+| `:set autosave=off` | 自動保存を無効化 |
+| `:set autosave=1s` | 1秒間隔（デフォルト） |
+| `:set autosave=5s` | 5秒間隔 |
+| `:set autosave=10s` | 10秒間隔 |
+| `:set autosave=30s` | 30秒間隔 |
+| `:set autosave=60s` | 60秒間隔 |
 
 </details>
 
@@ -358,12 +380,23 @@ mdvim/
 
 ## 📝 更新履歴
 
+### v0.2.5
+- ✨ 箇条書きの階層表示（ネストされたリスト）をサポート
+- ✨ ヤンク（`yy`, `yw`など）でシステムクリップボードにコピー
+- ✨ カーソル移動時に画面が自動スクロール
+- ✨ 自動保存間隔を設定可能に（`:set autosave=off|1s|5s|10s|30s|60s`）
+- 🔧 新規タブ起動時に最新セッションを現在のセッションにコピー
+- 🐛 ビジュアルモードで後方選択（`j`, `l`など）が正しく動作するように修正
+- 🐛 行番号とテキストの位置ずれを修正
+- 🐛 見出しハイライトの位置ずれを修正
+- 🐛 ファイルを開いた際に目次が更新されない問題を修正
+
 ### v0.2.4
 - ✨ `Ctrl+\``でVIM/NOVIMモード切り替え
 - 🔧 NOVIMモードで`:`と`?`が通常入力可能に
 - 🐛 `:welcome`で目次・プレビューが更新されない問題を修正
 
-### v0.2.4
+### v0.2.3
 - ✨ `z`コマンドによる画面スクロール追加（`zt`, `zz`, `zb`, `z Enter`, `z.`, `z-`）
 - ✨ `:welcome`コマンドでウェルカム画面を表示
 - 🐛 1行目の先頭で`x`キーを押した際のフォーカス消失を修正

@@ -16,6 +16,7 @@ const VimEditor = {
   pendingKey: '',
   pendingOperator: '',
   modified: false,
+  autoSaveInterval: '1s',      // 自動保存間隔: 'off', '1s', '5s', '10s', '30s', '60s'
   
   // 新機能用の状態
   marks: {},                    // マーク
@@ -74,6 +75,12 @@ const VimEditor = {
     // VIMモード設定を読み込み
     this.vimMode = localStorage.getItem('vim-md-vim-mode') === 'true';
     this.updateVimModeUI();
+    
+    // 自動保存設定を読み込み
+    const savedAutoSave = localStorage.getItem('vim-md-autosave');
+    if (savedAutoSave && ['off', '1s', '5s', '10s', '30s', '60s'].includes(savedAutoSave)) {
+      this.autoSaveInterval = savedAutoSave;
+    }
     
     // ファイル入力のイベント
     this.fileInput.addEventListener('change', e => this.handleFileOpen(e));
@@ -174,6 +181,8 @@ const VimEditor = {
         this.editor.value = latestSession.content;
         this.currentFileName = latestSession.filename || '無題';
         this.fileName.textContent = this.currentFileName;
+        // 現在のセッションIDでコピー保存
+        this.saveSessionData();
         this.showStatus('前回の内容を復元しました');
         return;
       }
@@ -199,11 +208,13 @@ const VimEditor = {
     
     // 4. 初回起動時のデフォルト内容
     this.editor.value = this.getWelcomeContent();
+    // ウェルカム内容も現在のセッションで保存
+    this.saveSessionData();
   },
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.2.4 へようこそ！
+    return `# mdvim v0.2.5 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -224,6 +235,11 @@ const VimEditor = {
 - \`:w\` で保存ダイアログ
 - \`:e\` でファイルを開く
 - \`:new\` で新規ファイル
+
+### 設定コマンド
+- \`:set vim\` / \`:set novim\` でモード切替
+- \`:set autosave=off\` で自動保存無効
+- \`:set autosave=5s\` で5秒間隔（デフォルト1秒）
 
 ### 数式（LaTeX）
 
@@ -364,6 +380,13 @@ graph LR
         return;
       }
       
+      // Enterキー: オートインデント
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.handleAutoIndent();
+        return;
+      }
+      
       // Escapeキー
       if (e.key === 'Escape') {
         if (!this.commandLine.classList.contains('hidden')) {
@@ -405,6 +428,9 @@ graph LR
       } else if (e.key === 'Tab') {
         e.preventDefault();
         this.handleTab(e.shiftKey);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        this.handleAutoIndent();
       }
       return;
     }
@@ -428,20 +454,29 @@ graph LR
     
     // 選択範囲がない場合
     if (start === end) {
+      const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = text.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = text.length;
+      const line = text.substring(lineStart, lineEnd);
+      
+      // リスト行の判定（箇条書き、番号リスト、タスクリスト）
+      const isListLine = /^(\s*)([-*+]|\d+\.)\s/.test(line);
+      
       if (isShift) {
-        // Shift+Tab: 現在行のインデントを減らす
-        const lineStart = text.lastIndexOf('\n', start - 1) + 1;
-        const lineText = text.substring(lineStart, start);
-        
-        if (lineText.startsWith(tabChar)) {
+        // Shift+Tab: 行頭のインデントを減らす
+        if (line.startsWith(tabChar)) {
           this.editor.value = text.substring(0, lineStart) + text.substring(lineStart + tabChar.length);
-          this.editor.selectionStart = this.editor.selectionEnd = start - tabChar.length;
-        } else if (lineText.startsWith('\t')) {
+          this.editor.selectionStart = this.editor.selectionEnd = Math.max(lineStart, start - tabChar.length);
+        } else if (line.startsWith('\t')) {
           this.editor.value = text.substring(0, lineStart) + text.substring(lineStart + 1);
-          this.editor.selectionStart = this.editor.selectionEnd = start - 1;
+          this.editor.selectionStart = this.editor.selectionEnd = Math.max(lineStart, start - 1);
         }
+      } else if (isListLine) {
+        // Tab on list line: 行頭にインデント追加
+        this.editor.value = text.substring(0, lineStart) + tabChar + text.substring(lineStart);
+        this.editor.selectionStart = this.editor.selectionEnd = start + tabChar.length;
       } else {
-        // Tab: タブ文字を挿入
+        // Tab on non-list line: カーソル位置にタブ挿入
         this.editor.value = text.substring(0, start) + tabChar + text.substring(end);
         this.editor.selectionStart = this.editor.selectionEnd = start + tabChar.length;
       }
@@ -482,6 +517,91 @@ graph LR
     this.onInput();
   },
   
+  // オートインデント処理（Enter押下時）
+  handleAutoIndent() {
+    const text = this.editor.value;
+    const pos = this.editor.selectionStart;
+    
+    // 現在行の開始位置を取得
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    const currentLine = text.substring(lineStart, pos);
+    
+    // インデント（先頭のスペース/タブ）を取得
+    const indentMatch = currentLine.match(/^(\s*)/);
+    const indent = indentMatch ? indentMatch[1] : '';
+    
+    // リストマーカーのパターン
+    const listPatterns = [
+      // タスクリスト: - [ ] や - [x]
+      { regex: /^(\s*)([-*+])\s+\[([ xX])\]\s*(.*)$/, type: 'task' },
+      // 番号付きリスト: 1. 2. など
+      { regex: /^(\s*)(\d+)\.\s+(.*)$/, type: 'ordered' },
+      // 箇条書き: - * +
+      { regex: /^(\s*)([-*+])\s+(.*)$/, type: 'unordered' },
+      // 引用: >
+      { regex: /^(\s*)(>+)\s*(.*)$/, type: 'quote' }
+    ];
+    
+    let newLineContent = '\n' + indent;
+    let shouldClearLine = false;
+    
+    for (const pattern of listPatterns) {
+      const match = currentLine.match(pattern.regex);
+      if (match) {
+        if (pattern.type === 'task') {
+          const [, lineIndent, marker, , content] = match;
+          if (content.trim() === '') {
+            // 空のタスクリスト → リストを終了
+            shouldClearLine = true;
+          } else {
+            newLineContent = '\n' + lineIndent + marker + ' [ ] ';
+          }
+        } else if (pattern.type === 'ordered') {
+          const [, lineIndent, num, content] = match;
+          if (content.trim() === '') {
+            // 空の番号リスト → リストを終了
+            shouldClearLine = true;
+          } else {
+            const nextNum = parseInt(num) + 1;
+            newLineContent = '\n' + lineIndent + nextNum + '. ';
+          }
+        } else if (pattern.type === 'unordered') {
+          const [, lineIndent, marker, content] = match;
+          if (content.trim() === '') {
+            // 空の箇条書き → リストを終了
+            shouldClearLine = true;
+          } else {
+            newLineContent = '\n' + lineIndent + marker + ' ';
+          }
+        } else if (pattern.type === 'quote') {
+          const [, lineIndent, markers, content] = match;
+          if (content.trim() === '') {
+            // 空の引用 → 引用を終了
+            shouldClearLine = true;
+          } else {
+            newLineContent = '\n' + lineIndent + markers + ' ';
+          }
+        }
+        break;
+      }
+    }
+    
+    if (shouldClearLine) {
+      // 空のリスト/引用行を削除して新しい行を追加
+      this.editor.value = text.substring(0, lineStart) + '\n' + text.substring(pos);
+      this.editor.selectionStart = this.editor.selectionEnd = lineStart + 1;
+    } else {
+      // インデント（とリストマーカー）を追加して新しい行
+      this.editor.value = text.substring(0, pos) + newLineContent + text.substring(pos);
+      this.editor.selectionStart = this.editor.selectionEnd = pos + newLineContent.length;
+    }
+    
+    this.modified = true;
+    this.updateFileStatus();
+    this.onInput();
+    this.scrollToCursor();
+  },
+
   exitInsertMode() {
     // 挿入モード終了時の処理
     if (this.lastEdit && this.lastEdit.type === 'insert') {
@@ -786,7 +906,7 @@ graph LR
     const text = this.editor.value.substring(start, end);
     
     if (op === 'y') {
-      this.register = text;
+      this.setRegister(text);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
       this.showStatus('ヤンクしました');
@@ -1015,7 +1135,7 @@ graph LR
       const text = this.editor.value.substring(range.start, range.end);
       
       if (op === 'y') {
-        this.register = text;
+        this.setRegister(text);
         this.showStatus('ヤンクしました');
       } else {
         this.register = text;
@@ -1153,6 +1273,23 @@ graph LR
     const start = Math.min(this.visualStart, this.editor.selectionStart);
     const end = Math.max(this.visualStart, this.editor.selectionEnd);
     
+    // ビジュアルモードでの実際のカーソル位置を取得
+    // visualStartの反対側がカーソル位置
+    let cursorPos;
+    if (this.editor.selectionStart < this.visualStart) {
+      cursorPos = this.editor.selectionStart;
+    } else {
+      cursorPos = this.editor.selectionEnd;
+    }
+    
+    // 移動系コマンドの場合、カーソル位置から移動するために一時的に設定
+    const isMovementKey = ['h', 'l', 'j', 'k', 'w', 'b', '0', '$', 'G', '{', '}', 
+                           'ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp'].includes(key);
+    if (isMovementKey) {
+      this.editor.selectionStart = cursorPos;
+      this.editor.selectionEnd = cursorPos;
+    }
+    
     switch(key) {
       case 'h': case 'ArrowLeft': this.moveCursor(-1); break;
       case 'l': case 'ArrowRight': this.moveCursor(1); break;
@@ -1188,7 +1325,7 @@ graph LR
         this.setMode('normal');
         return;
       case 'y':
-        this.register = this.editor.value.substring(start, end);
+        this.setRegister(this.editor.value.substring(start, end));
         this.setMode('normal');
         this.editor.selectionEnd = this.editor.selectionStart;
         this.showStatus('ヤンクしました');
@@ -1220,18 +1357,18 @@ graph LR
     
     // 選択範囲の更新
     if (this.mode === 'visual') {
-      const curPos = this.editor.selectionStart;
+      const newCurPos = this.editor.selectionStart;
       if (this.visualLine) {
         const text = this.editor.value;
-        const startLine = text.lastIndexOf('\n', Math.min(this.visualStart, curPos) - 1) + 1;
-        let endLine = text.indexOf('\n', Math.max(this.visualStart, curPos));
+        const startLine = text.lastIndexOf('\n', Math.min(this.visualStart, newCurPos) - 1) + 1;
+        let endLine = text.indexOf('\n', Math.max(this.visualStart, newCurPos));
         if (endLine === -1) endLine = text.length;
         else endLine++;
         this.editor.selectionStart = startLine;
         this.editor.selectionEnd = endLine;
       } else {
-        this.editor.selectionStart = Math.min(this.visualStart, curPos);
-        this.editor.selectionEnd = Math.max(this.visualStart, curPos);
+        this.editor.selectionStart = Math.min(this.visualStart, newCurPos);
+        this.editor.selectionEnd = Math.max(this.visualStart, newCurPos);
       }
     }
     
@@ -1279,8 +1416,8 @@ graph LR
           // ファイル名指定あり → 直接ダウンロード
           this.downloadFile(parts[1]);
         } else {
-          // ファイル名なし → 保存ダイアログを開く
-          this.saveWithDialog();
+          // ファイル名なし → 上書き保存（ハンドルがなければダイアログ）
+          this.saveToCurrentFile();
         }
         break;
       case 'q':
@@ -1372,6 +1509,25 @@ graph LR
         } else if (parts[1] === 'theme') {
           const current = document.documentElement.getAttribute('data-theme') || 'dark';
           this.showStatus(`現在のテーマ: ${current}`);
+        } else if (parts[1] && parts[1].startsWith('autosave=')) {
+          const value = parts[1].split('=')[1];
+          if (['off', '1s', '5s', '10s', '30s', '60s'].includes(value)) {
+            this.autoSaveInterval = value;
+            localStorage.setItem('vim-md-autosave', value);
+            if (value === 'off') {
+              this.showStatus('自動保存: 無効');
+            } else {
+              this.showStatus(`自動保存: ${value}間隔`);
+            }
+          } else {
+            this.showStatus('無効な値: off, 1s, 5s, 10s, 30s, 60s から選択');
+          }
+        } else if (parts[1] === 'autosave') {
+          if (this.autoSaveInterval === 'off') {
+            this.showStatus('自動保存: 無効');
+          } else {
+            this.showStatus(`自動保存: ${this.autoSaveInterval}間隔`);
+          }
         }
         break;
       case 'theme':
@@ -2169,6 +2325,12 @@ graph LR
   },
   
   // ヤンク/ペースト
+  // registerにテキストを保存し、クリップボードにもコピー
+  setRegister(text) {
+    this.register = text;
+    navigator.clipboard.writeText(text).catch(() => {});
+  },
+  
   yankLine() {
     const text = this.editor.value;
     const pos = this.editor.selectionStart;
@@ -2177,8 +2339,8 @@ graph LR
     if (lineEnd === -1) lineEnd = text.length;
     else lineEnd++;
     
-    this.register = text.substring(lineStart, lineEnd);
-    this.showStatus('1行Yanked');
+    this.setRegister(text.substring(lineStart, lineEnd));
+    this.showStatus('1行ヤンクしました');
   },
   
   yankWord() {
@@ -2186,7 +2348,7 @@ graph LR
     const pos = this.editor.selectionStart;
     const match = text.substring(pos).match(/^\S+/);
     if (match) {
-      this.register = match[0];
+      this.setRegister(match[0]);
       this.showStatus('ヤンクしました');
     }
   },
@@ -2380,6 +2542,32 @@ graph LR
     this.saveSessionData();
   },
   
+  // 現在のファイルに上書き保存
+  async saveToCurrentFile() {
+    if (!this.currentFileHandle) {
+      // ファイルハンドルがない場合は保存ダイアログを開く
+      return this.saveWithDialog();
+    }
+    
+    try {
+      const writable = await this.currentFileHandle.createWritable();
+      await writable.write(this.editor.value);
+      await writable.close();
+      
+      this.modified = false;
+      this.updateFileStatus();
+      this.showStatus(`"${this.currentFileName}" を保存しました`);
+    } catch (err) {
+      // 権限エラーなどの場合は保存ダイアログにフォールバック
+      if (err.name === 'NotAllowedError') {
+        this.showStatus('書き込み権限がありません。別名で保存します...');
+        return this.saveWithDialog();
+      }
+      this.showStatus('保存に失敗しました');
+      console.error('Save error:', err);
+    }
+  },
+  
   // ダイアログで保存
   async saveWithDialog() {
     // File System Access API が使えるか確認
@@ -2449,6 +2637,8 @@ graph LR
         this.updateFileStatus();
         this.updateLineNumbers();
         this.updatePreview();
+        this.updateToc();  // 目次更新
+        this.updateHeadingHighlight();  // 見出しハイライト更新
         this.editor.selectionStart = 0;
         this.editor.selectionEnd = 0;
         this.updateCursorPos();
@@ -2612,9 +2802,20 @@ graph LR
       this.lastEditText += e.data;
     }
     
-    // 自動保存（デバウンス: 1秒後に保存）
+    // 自動保存（設定に応じた間隔）
     clearTimeout(this.autoSaveTimer);
-    this.autoSaveTimer = setTimeout(() => this.autoSave(), 1000);
+    const intervals = {
+      'off': null,
+      '1s': 1000,
+      '5s': 5000,
+      '10s': 10000,
+      '30s': 30000,
+      '60s': 60000
+    };
+    const interval = intervals[this.autoSaveInterval];
+    if (interval) {
+      this.autoSaveTimer = setTimeout(() => this.autoSave(), interval);
+    }
   },
   
   updateCursorPos() {
@@ -2625,6 +2826,11 @@ graph LR
     const col = lines[lines.length - 1].length + 1;
     this.cursorPos.textContent = `${line}:${col}`;
     this.updateCursorOverlay();
+    
+    // VIMモードの場合、カーソルが見える位置にスクロール
+    if (this.vimMode) {
+      this.scrollToCursor();
+    }
     
     // プレビューを現在行に同期
     this.syncPreviewToLine(line - 1);
@@ -2797,7 +3003,7 @@ graph LR
       this.editor.style.fontSize = `${baseFontSize}rem`;
     }
     if (this.lineNumbers) {
-      this.lineNumbers.style.fontSize = `${baseFontSize * 0.95}rem`;
+      this.lineNumbers.style.fontSize = `${baseFontSize}rem`;
     }
     if (this.preview) {
       this.preview.style.fontSize = `${basePreviewSize}rem`;
@@ -3039,7 +3245,7 @@ graph LR
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
           
-          html += `<div class="heading-text-overlay h${level}" style="top: ${top}px; left: ${paddingLeft - scrollLeft}px; height: ${lineHeight}px; line-height: ${lineHeight}px;">${escapedLine}</div>`;
+          html += `<div class="heading-text-overlay h${level}" style="top: ${top}px; left: ${paddingLeft - scrollLeft}px;">${escapedLine}</div>`;
         }
       }
     }
@@ -3256,7 +3462,19 @@ graph LR
   scrollToCursor() {
     const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight);
     const text = this.editor.value;
-    const pos = this.editor.selectionStart;
+    
+    // ビジュアルモードでは、visualStartの反対側がカーソル位置
+    let pos;
+    if (this.mode === 'visual' && this.visualStart !== undefined) {
+      if (this.editor.selectionStart < this.visualStart) {
+        pos = this.editor.selectionStart;
+      } else {
+        pos = this.editor.selectionEnd;
+      }
+    } else {
+      pos = this.editor.selectionStart;
+    }
+    
     const linesBeforeCursor = text.substring(0, pos).split('\n').length - 1;
     const cursorTop = linesBeforeCursor * lineHeight;
     

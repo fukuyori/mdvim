@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.2.4 - Vim風マークダウンエディタ</title>
+  <title>mdvim v0.2.5 - Vim風マークダウンエディタ</title>
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -13,7 +13,7 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.4</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.2.5</span></div>
     <div class="view-controls">
       <button id="btn-edit" class="active" onclick="setViewMode('edit')">編集</button>
       <button id="btn-preview" onclick="setViewMode('preview')">プレビュー</button>
@@ -178,6 +178,8 @@
             <li><kbd>:ls</kbd> ローカルストレージに保存</li>
             <li><kbd>:q</kbd> / <kbd>:wq</kbd> 終了</li>
             <li><kbd>:set nu/nonu</kbd> 行番号切替</li>
+            <li><kbd>:set vim/novim</kbd> モード切替</li>
+            <li><kbd>:set autosave=off|1s|5s...</kbd> 自動保存設定</li>
             <li><kbd>:theme dark/light/original</kbd> テーマ変更</li>
             <li><kbd>:help</kbd> ヘルプ表示</li>
           </ul>

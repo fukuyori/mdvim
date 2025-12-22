@@ -11,7 +11,7 @@
     <a href="#license">License</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.2.2-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.2.5-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/no%20install-required-brightgreen.svg" alt="No Install">
@@ -79,7 +79,7 @@ A powerful, fully-featured Vim-style Markdown editor that runs entirely in your 
 ### Option 1: Download and Open
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mdvim.git
+git clone https://github.com/fukuyori/mdvim.git
 
 # Open in browser
 open mdvim/mdvim.html        # English
@@ -212,6 +212,28 @@ Use with `d` (delete), `c` (change), `y` (yank), or `v` (visual):
 | `:q` | Quit (warns if unsaved) |
 | `:q!` | Force quit |
 | `:wq` | Save and quit |
+
+</details>
+
+<details>
+<summary><strong>⚙️ Settings Commands</strong></summary>
+
+| Command | Action |
+|---------|--------|
+| `:set vim` | Enable VIM mode |
+| `:set novim` | Switch to NOVIM mode |
+| `:set nu` | Show line numbers |
+| `:set nonu` | Hide line numbers |
+| `:set theme=dark` | Dark theme |
+| `:set theme=light` | Light theme |
+| `:set theme=original` | Retro CRT theme |
+| `:set autosave` | Show current auto-save setting |
+| `:set autosave=off` | Disable auto-save |
+| `:set autosave=1s` | 1 second interval (default) |
+| `:set autosave=5s` | 5 second interval |
+| `:set autosave=10s` | 10 second interval |
+| `:set autosave=30s` | 30 second interval |
+| `:set autosave=60s` | 60 second interval |
 
 </details>
 
@@ -358,12 +380,23 @@ All loaded via CDN (no build required):
 
 ## 📝 Changelog
 
+### v0.2.5
+- ✨ Added nested list support (indented bullet/numbered lists)
+- ✨ Yank commands (`yy`, `yw`, etc.) now copy to system clipboard
+- ✨ Auto-scroll on cursor movement
+- ✨ Configurable auto-save interval (`:set autosave=off|1s|5s|10s|30s|60s`)
+- 🔧 Copy latest session to current session on new tab launch
+- 🐛 Fixed visual mode backward selection (`j`, `l`, etc.)
+- 🐛 Fixed line number and text position misalignment
+- 🐛 Fixed heading highlight position misalignment
+- 🐛 Fixed TOC not updating when opening files
+
 ### v0.2.4
 - ✨ Added `Ctrl+`` to toggle VIM/NOVIM mode
 - 🔧 NOVIM mode: `:` and `?` now input normally as text
 - 🐛 Fixed `:welcome` not updating TOC and preview
 
-### v0.2.4
+### v0.2.3
 - ✨ Added `z` commands for screen scrolling (`zt`, `zz`, `zb`, `z Enter`, `z.`, `z-`)
 - ✨ Added `:welcome` command to display welcome screen
 - 🐛 Fixed focus loss when pressing `x` at beginning of first line

@@ -1,7 +1,3 @@
-/**
- * Markdown Parser
- * マークダウンをHTMLに変換するパーサー
- */
 const MarkdownParser = {
   escapeHtml(text) {
     return text
@@ -9,6 +5,68 @@ const MarkdownParser = {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  },
+  
+  // ネストされたリストをパース
+  parseNestedList(items) {
+    if (items.length === 0) return '';
+    
+    const buildList = (items, startIdx, baseIndent) => {
+      let html = '';
+      let i = startIdx;
+      let firstItem = true;
+      let listType = items[i].type;
+      let isTask = items[i].isTask;
+      
+      // リスト開始タグ
+      if (listType === 'ol') {
+        html += '<ol>';
+      } else if (isTask) {
+        html += '<ul class="task-list">';
+      } else {
+        html += '<ul>';
+      }
+      
+      while (i < items.length) {
+        const item = items[i];
+        
+        if (item.indent < baseIndent) {
+          // インデントが浅くなったら、このリストを終了
+          break;
+        }
+        
+        if (item.indent === baseIndent) {
+          // 同じレベルのアイテム
+          if (item.isTask) {
+            const checked = item.checked ? 'checked' : '';
+            html += `<li class="task-item"><input type="checkbox" ${checked} disabled>${this.parseInline(item.content)}`;
+          } else {
+            html += `<li>${this.parseInline(item.content)}`;
+          }
+          
+          // 次のアイテムがより深いインデントか確認
+          if (i + 1 < items.length && items[i + 1].indent > baseIndent) {
+            // サブリストを再帰的に処理
+            const subResult = buildList(items, i + 1, items[i + 1].indent);
+            html += subResult.html;
+            i = subResult.endIdx;
+          } else {
+            i++;
+          }
+          html += '</li>';
+        } else {
+          // 深いインデント（通常は再帰で処理される）
+          i++;
+        }
+      }
+      
+      // リスト終了タグ
+      html += listType === 'ol' ? '</ol>' : '</ul>';
+      
+      return { html, endIdx: i };
+    };
+    
+    return buildList(items, 0, items[0].indent).html;
   },
   
   parseInline(text) {
@@ -87,7 +145,7 @@ const MarkdownParser = {
     let inCodeBlock = false;
     let inMathBlock = false;
     let mathBuffer = [];
-    let inList = null;
+    let listBuffer = [];
     let tableRows = [];
     let codeLang = '';
     let codeBuffer = [];
@@ -100,11 +158,19 @@ const MarkdownParser = {
     let noteType = '';
     let noteBuffer = [];
     
+    // リストバッファをフラッシュ
+    const flushList = () => {
+      if (listBuffer.length > 0) {
+        html.push(this.parseNestedList(listBuffer));
+        listBuffer = [];
+      }
+    };
+    
     for (const line of lines) {
       // 折り畳み開始 :::details タイトル
       const detailsStart = line.match(/^:::details\s*(.*)$/);
       if (detailsStart && !inCodeBlock && !inMathBlock) {
-        if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+        flushList();
         inDetails = true;
         detailsSummary = detailsStart[1] || '詳細';
         detailsBuffer = [];
@@ -130,7 +196,7 @@ const MarkdownParser = {
       // Qiita note記法開始 :::note [info|warn|alert]
       const noteStart = line.match(/^:::note\s*(info|warn|alert)?$/i);
       if (noteStart && !inCodeBlock && !inMathBlock && !inNote) {
-        if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+        flushList();
         inNote = true;
         noteType = (noteStart[1] || 'info').toLowerCase();
         noteBuffer = [];
@@ -192,7 +258,7 @@ const MarkdownParser = {
           mathBuffer = [];
           inMathBlock = false;
         } else {
-          if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+          flushList();
           inMathBlock = true;
         }
         continue;
@@ -201,7 +267,7 @@ const MarkdownParser = {
       // 1行の数式ブロック $$...$$
       const singleLineMath = line.match(/^\$\$(.+)\$\$$/);
       if (singleLineMath) {
-        if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+        flushList();
         html.push(`<div class="math-block" data-math="${this.escapeHtml(singleLineMath[1])}"></div>`);
         continue;
       }
@@ -214,7 +280,7 @@ const MarkdownParser = {
       // 見出し
       const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
       if (headingMatch) {
-        if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+        flushList();
         const level = headingMatch[1].length;
         html.push(`<h${level}>${this.parseInline(headingMatch[2])}</h${level}>`);
         continue;
@@ -222,14 +288,14 @@ const MarkdownParser = {
       
       // 水平線
       if (/^(---|\*\*\*|___)$/.test(line.trim())) {
-        if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+        flushList();
         html.push('<hr>');
         continue;
       }
       
       // 引用（複数行対応 + GitHub Alerts）
       if (line.startsWith('>')) {
-        if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+        flushList();
         if (tableRows.length > 0) { html.push(this.parseTable(tableRows)); tableRows = []; }
         
         const content = line.slice(1).trim();
@@ -265,7 +331,7 @@ const MarkdownParser = {
       
       // テーブル行の検出
       if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
-        if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+        flushList();
         tableRows.push(line);
         continue;
       } else if (tableRows.length > 0) {
@@ -273,49 +339,37 @@ const MarkdownParser = {
         tableRows = [];
       }
       
-      // タスクリスト（チェックボックス）
-      const taskMatch = line.match(/^[-*+]\s+\[([ xX])\]\s+(.+)$/);
+      // タスクリスト（チェックボックス）- インデント対応
+      const taskMatch = line.match(/^(\s*)([-*+])\s+\[([ xX])\]\s+(.+)$/);
       if (taskMatch) {
-        if (inList !== 'ul') {
-          if (inList) html.push('</ol>');
-          html.push('<ul class="task-list">');
-          inList = 'ul';
-        }
-        const checked = taskMatch[1].toLowerCase() === 'x' ? 'checked' : '';
-        html.push(`<li class="task-item"><input type="checkbox" ${checked} disabled>${this.parseInline(taskMatch[2])}</li>`);
+        const indent = taskMatch[1].length;
+        const checked = taskMatch[3].toLowerCase() === 'x';
+        const content = taskMatch[4];
+        listBuffer.push({ type: 'ul', indent, content, isTask: true, checked });
         continue;
       }
       
-      // 順序なしリスト
-      const ulMatch = line.match(/^[-*+]\s+(.+)$/);
+      // 順序なしリスト - インデント対応
+      const ulMatch = line.match(/^(\s*)([-*+])\s+(.+)$/);
       if (ulMatch) {
-        if (inList !== 'ul') {
-          if (inList) html.push('</ol>');
-          html.push('<ul>');
-          inList = 'ul';
-        }
-        html.push(`<li>${this.parseInline(ulMatch[1])}</li>`);
+        const indent = ulMatch[1].length;
+        const content = ulMatch[3];
+        listBuffer.push({ type: 'ul', indent, content, isTask: false, checked: false });
         continue;
       }
       
-      // 順序ありリスト
-      const olMatch = line.match(/^\d+\.\s+(.+)$/);
+      // 順序ありリスト - インデント対応
+      const olMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
       if (olMatch) {
-        if (inList !== 'ol') {
-          if (inList) html.push('</ul>');
-          html.push('<ol>');
-          inList = 'ol';
-        }
-        html.push(`<li>${this.parseInline(olMatch[1])}</li>`);
+        const indent = olMatch[1].length;
+        const content = olMatch[3];
+        listBuffer.push({ type: 'ol', indent, content, isTask: false, checked: false });
         continue;
       }
       
       // 空行
       if (line.trim() === '') {
-        if (inList) {
-          html.push(inList === 'ol' ? '</ol>' : '</ul>');
-          inList = null;
-        }
+        flushList();
         if (tableRows.length > 0) {
           html.push(this.parseTable(tableRows));
           tableRows = [];
@@ -324,13 +378,13 @@ const MarkdownParser = {
       }
       
       // 通常のパラグラフ
-      if (inList) { html.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+      flushList();
       if (tableRows.length > 0) { html.push(this.parseTable(tableRows)); tableRows = []; }
       html.push(`<p>${this.parseInline(line)}</p>`);
     }
     
     // 閉じタグの処理
-    if (inList) html.push(inList === 'ol' ? '</ol>' : '</ul>');
+    flushList();
     if (inCodeBlock) {
       html.push(`<pre><code class="language-${codeLang || 'text'}">${codeBuffer.join('\n')}</code></pre>`);
     }
