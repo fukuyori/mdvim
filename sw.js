@@ -1,5 +1,5 @@
 // mdvim Service Worker v0.4
-const CACHE_NAME = 'mdvim-v0.5.1';
+const CACHE_NAME = 'mdvim-v0.5.3';
 const ASSETS_TO_CACHE = [
   './',
   './mdvim-jp.html',

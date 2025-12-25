@@ -218,7 +218,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.5!
+    return `# Welcome to mdvim v0.5.2!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -332,7 +332,6 @@ Press \`?\` for help
     }
   },
   
-  handleKeydown(e) {
   handleKeydown(e) {
     // NOVIMモードの場合 - シンプルに処理
     if (this.vimMode !== true) {
@@ -943,19 +942,19 @@ Press \`?\` for help
     const text = this.editor.value.substring(start, end);
     
     if (op === 'y') {
-      this.setRegister(text);
+      this.setRegister(text, true);  // isYank = true
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
       this.showStatus('Yanked');
     } else if (op === 'd') {
-      this.setRegister(text);
+      this.setRegister(text);  // delete doesn't copy to clipboard
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
       this.setLastEdit('d' + motion, null, count);
       this.onInput();
     } else if (op === 'c') {
-      this.setRegister(text);
+      this.setRegister(text);  // change doesn't copy to clipboard
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
@@ -1173,10 +1172,10 @@ Press \`?\` for help
       const text = this.editor.value.substring(range.start, range.end);
       
       if (op === 'y') {
-        this.setRegister(text);
+        this.setRegister(text, true);  // isYank = true
         this.showStatus('Yanked');
       } else {
-        this.setRegister(text);
+        this.setRegister(text);  // delete/change doesn't copy to clipboard
         this.editor.value = this.editor.value.substring(0, range.start) + this.editor.value.substring(range.end);
         this.editor.selectionStart = range.start;
         this.editor.selectionEnd = range.start;
@@ -1362,12 +1361,12 @@ Press \`?\` for help
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.setRegister(this.editor.value.substring(start, end));
+        this.setRegister(this.editor.value.substring(start, end));  // delete doesn't copy to clipboard
         this.deleteSelection();
         this.setMode('normal');
         return;
       case 'y':
-        this.setRegister(this.editor.value.substring(start, end));
+        this.setRegister(this.editor.value.substring(start, end), true);  // isYank = true
         this.setMode('normal');
         this.editor.selectionEnd = this.editor.selectionStart;
         this.showStatus('Yanked');
@@ -1376,7 +1375,7 @@ Press \`?\` for help
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.setRegister(this.editor.value.substring(start, end));
+        this.setRegister(this.editor.value.substring(start, end));  // change doesn't copy to clipboard
         this.deleteSelection();
         this.setMode('insert');
         return;
@@ -1796,14 +1795,21 @@ Press \`?\` for help
       }
     }
     
-    // Copy to clipboard
-    this.copyToClipboard(text);
+    // Copy to clipboard only for yank operations or "*"/"+register
+    if (isYank || reg === '*' || reg === '+') {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+      // Also save to clipboard registers
+      this.registers['*'] = text;
+      this.registers['+'] = text;
+    }
     
     // Reset register selection
     this.selectedRegister = '"';
     
     // Backward compatibility
-    this.setRegister(text);
+    this.register = text;
   },
   
   getRegister() {
@@ -2577,12 +2583,6 @@ Press \`?\` for help
   },
   
   // Yank/Paste
-  // Set register and copy to clipboard
-  setRegister(text) {
-    this.setRegister(text);
-    navigator.clipboard.writeText(text).catch(() => {});
-  },
-  
   yankLine() {
     const text = this.editor.value;
     const pos = this.editor.selectionStart;
@@ -2591,7 +2591,7 @@ Press \`?\` for help
     if (lineEnd === -1) lineEnd = text.length;
     else lineEnd++;
     
-    this.setRegister(text.substring(lineStart, lineEnd));
+    this.setRegister(text.substring(lineStart, lineEnd), true);  // isYank = true
     this.showStatus('Line yanked');
   },
   
@@ -2600,13 +2600,29 @@ Press \`?\` for help
     const pos = this.editor.selectionStart;
     const match = text.substring(pos).match(/^\S+/);
     if (match) {
-      this.setRegister(match[0]);
+      this.setRegister(match[0], true);  // isYank = true
       this.showStatus('Yanked');
     }
   },
   
-  paste() {
-    const reg = this.getRegister();
+  async paste() {
+    const regName = this.selectedRegister;
+    this.selectedRegister = '"';
+    
+    let reg;
+    // "*" or "+" register reads from clipboard
+    if ((regName === '*' || regName === '+') && navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        reg = await navigator.clipboard.readText();
+        this.registers['*'] = reg;
+        this.registers['+'] = reg;
+      } catch (e) {
+        reg = this.registers[regName] || this.registers['"'] || '';
+      }
+    } else {
+      reg = this.registers[regName] || '';
+    }
+    
     if (!reg) return;
     
     if (reg.endsWith('\n')) {
@@ -2621,8 +2637,24 @@ Press \`?\` for help
     }
   },
   
-  pasteBefore() {
-    const reg = this.getRegister();
+  async pasteBefore() {
+    const regName = this.selectedRegister;
+    this.selectedRegister = '"';
+    
+    let reg;
+    // "*" or "+" register reads from clipboard
+    if ((regName === '*' || regName === '+') && navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        reg = await navigator.clipboard.readText();
+        this.registers['*'] = reg;
+        this.registers['+'] = reg;
+      } catch (e) {
+        reg = this.registers[regName] || this.registers['"'] || '';
+      }
+    } else {
+      reg = this.registers[regName] || '';
+    }
+    
     if (!reg) return;
     
     if (reg.endsWith('\n')) {
@@ -3268,9 +3300,6 @@ Press \`?\` for help
     
     if (this.fontSizeDisplay) {
       this.fontSizeDisplay.textContent = `${this.fontSize}%`;
-    }
-    
-    // 見出しハイライトのフォントサイズも更新
     }
     
     // 初期化完了後のみ表示を更新

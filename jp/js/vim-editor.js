@@ -218,7 +218,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.5 へようこそ！
+    return `# mdvim v0.5.2 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -944,19 +944,19 @@ graph LR
     const text = this.editor.value.substring(start, end);
     
     if (op === 'y') {
-      this.setRegister(text);
+      this.setRegister(text, true);  // isYank = true
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
       this.showStatus('ヤンクしました');
     } else if (op === 'd') {
-      this.setRegister(text);
+      this.setRegister(text);  // 削除はクリップボードにコピーしない
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
       this.setLastEdit('d' + motion, null, count);
       this.onInput();
     } else if (op === 'c') {
-      this.setRegister(text);
+      this.setRegister(text);  // 変更はクリップボードにコピーしない
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
@@ -1174,10 +1174,10 @@ graph LR
       const text = this.editor.value.substring(range.start, range.end);
       
       if (op === 'y') {
-        this.setRegister(text);
+        this.setRegister(text, true);  // isYank = true
         this.showStatus('ヤンクしました');
       } else {
-        this.setRegister(text);
+        this.setRegister(text);  // 削除/変更はクリップボードにコピーしない
         this.editor.value = this.editor.value.substring(0, range.start) + this.editor.value.substring(range.end);
         this.editor.selectionStart = range.start;
         this.editor.selectionEnd = range.start;
@@ -1363,12 +1363,12 @@ graph LR
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.setRegister(this.editor.value.substring(start, end));
+        this.setRegister(this.editor.value.substring(start, end));  // 削除はクリップボードにコピーしない
         this.deleteSelection();
         this.setMode('normal');
         return;
       case 'y':
-        this.setRegister(this.editor.value.substring(start, end));
+        this.setRegister(this.editor.value.substring(start, end), true);  // isYank = true
         this.setMode('normal');
         this.editor.selectionEnd = this.editor.selectionStart;
         this.showStatus('ヤンクしました');
@@ -1377,7 +1377,7 @@ graph LR
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.setRegister(this.editor.value.substring(start, end));
+        this.setRegister(this.editor.value.substring(start, end));  // 変更はクリップボードにコピーしない
         this.deleteSelection();
         this.setMode('insert');
         return;
@@ -1799,14 +1799,21 @@ graph LR
       }
     }
     
-    // クリップボードにもコピー
-    this.copyToClipboard(text);
+    // ヤンク操作 または "*"/"+レジスタ の場合のみクリップボードにコピー
+    if (isYank || reg === '*' || reg === '+') {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+      // クリップボードレジスタにも保存
+      this.registers['*'] = text;
+      this.registers['+'] = text;
+    }
     
     // レジスタ選択をリセット
     this.selectedRegister = '"';
     
     // 後方互換性のため
-    this.setRegister(text);
+    this.register = text;
   },
   
   getRegister() {
@@ -2587,12 +2594,6 @@ graph LR
   },
   
   // ヤンク/ペースト
-  // registerにテキストを保存し、クリップボードにもコピー
-  setRegister(text) {
-    this.setRegister(text);
-    navigator.clipboard.writeText(text).catch(() => {});
-  },
-  
   yankLine() {
     const text = this.editor.value;
     const pos = this.editor.selectionStart;
@@ -2601,7 +2602,7 @@ graph LR
     if (lineEnd === -1) lineEnd = text.length;
     else lineEnd++;
     
-    this.setRegister(text.substring(lineStart, lineEnd));
+    this.setRegister(text.substring(lineStart, lineEnd), true);  // isYank = true
     this.showStatus('1行ヤンクしました');
   },
   
@@ -2610,13 +2611,29 @@ graph LR
     const pos = this.editor.selectionStart;
     const match = text.substring(pos).match(/^\S+/);
     if (match) {
-      this.setRegister(match[0]);
+      this.setRegister(match[0], true);  // isYank = true
       this.showStatus('ヤンクしました');
     }
   },
   
-  paste() {
-    const reg = this.getRegister();
+  async paste() {
+    const regName = this.selectedRegister;
+    this.selectedRegister = '"';
+    
+    let reg;
+    // "*" または "+" レジスタの場合はクリップボードから読み込み
+    if ((regName === '*' || regName === '+') && navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        reg = await navigator.clipboard.readText();
+        this.registers['*'] = reg;
+        this.registers['+'] = reg;
+      } catch (e) {
+        reg = this.registers[regName] || this.registers['"'] || '';
+      }
+    } else {
+      reg = this.registers[regName] || '';
+    }
+    
     if (!reg) return;
     
     if (reg.endsWith('\n')) {
@@ -2631,8 +2648,24 @@ graph LR
     }
   },
   
-  pasteBefore() {
-    const reg = this.getRegister();
+  async pasteBefore() {
+    const regName = this.selectedRegister;
+    this.selectedRegister = '"';
+    
+    let reg;
+    // "*" または "+" レジスタの場合はクリップボードから読み込み
+    if ((regName === '*' || regName === '+') && navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        reg = await navigator.clipboard.readText();
+        this.registers['*'] = reg;
+        this.registers['+'] = reg;
+      } catch (e) {
+        reg = this.registers[regName] || this.registers['"'] || '';
+      }
+    } else {
+      reg = this.registers[regName] || '';
+    }
+    
     if (!reg) return;
     
     if (reg.endsWith('\n')) {
