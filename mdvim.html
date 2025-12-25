@@ -1830,7 +1830,6 @@ Press \`?\` for help
   },
   
   handleKeydown(e) {
-  handleKeydown(e) {
     // NOVIMモードの場合 - シンプルに処理
     if (this.vimMode !== true) {
       
@@ -4765,9 +4764,6 @@ Press \`?\` for help
     
     if (this.fontSizeDisplay) {
       this.fontSizeDisplay.textContent = `${this.fontSize}%`;
-    }
-    
-    // 見出しハイライトのフォントサイズも更新
     }
     
     // 初期化完了後のみ表示を更新
