@@ -218,7 +218,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.5.2 へようこそ！
+    return `# mdvim v0.5.3 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -3089,13 +3089,18 @@ graph LR
     // 軽い処理は即座に実行
     this.updateCursorPos();
     
-    // 重い処理はデバウンス（150ms）
+    // 行番号は短いデバウンス（50ms）
+    clearTimeout(this.lineNumberTimer);
+    this.lineNumberTimer = setTimeout(() => {
+      this.updateLineNumbers();
+    }, 50);
+    
+    // プレビューは長いデバウンス（300ms）
     clearTimeout(this.heavyUpdateTimer);
     this.heavyUpdateTimer = setTimeout(() => {
-      this.updateLineNumbers();
       this.updatePreview();
       this.updateToc();
-    }, 150);
+    }, 300);
     
     // 挿入モードでのテキスト追跡
     if (this.mode === 'insert' && e && e.data) {
@@ -3214,6 +3219,15 @@ graph LR
   
   updateLineNumbers() {
     const lines = this.editor.value.split('\n');
+    const totalLines = lines.length;
+    
+    // 大量行の場合は仮想スクロール
+    if (totalLines > 1000) {
+      this.updateLineNumbersVirtual(lines);
+      return;
+    }
+    
+    // 通常処理（1000行以下）
     let html = '';
     let inCodeBlock = false;
     
@@ -3237,6 +3251,54 @@ graph LR
       }
     }
     
+    this.lineNumbers.innerHTML = html;
+  },
+  
+  // 仮想スクロール対応の行番号更新
+  updateLineNumbersVirtual(lines) {
+    const totalLines = lines.length;
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight) || 20;
+    const scrollTop = this.editor.scrollTop;
+    const viewportHeight = this.editor.clientHeight;
+    
+    // 表示範囲を計算（前後にバッファ）
+    const buffer = 50;
+    const startLine = Math.max(0, Math.floor(scrollTop / lineHeight) - buffer);
+    const endLine = Math.min(totalLines, Math.ceil((scrollTop + viewportHeight) / lineHeight) + buffer);
+    
+    // コードブロック状態を開始位置まで計算
+    let inCodeBlock = false;
+    for (let i = 0; i < startLine; i++) {
+      if (lines[i].trim().startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+      }
+    }
+    
+    // 上部のスペーサー
+    const topPadding = startLine * lineHeight;
+    const bottomPadding = (totalLines - endLine) * lineHeight;
+    
+    let html = `<div style="height:${topPadding}px"></div>`;
+    
+    for (let i = startLine; i < endLine; i++) {
+      const lineNum = i + 1;
+      const line = lines[i];
+      
+      if (line.trim().startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+      }
+      
+      const headingMatch = !inCodeBlock && line.match(/^(#{1,6})\s+.+/);
+      
+      if (headingMatch) {
+        const level = headingMatch[1].length;
+        html += `<span class="line-num heading-h${level}">${lineNum}</span>`;
+      } else {
+        html += `<span class="line-num">${lineNum}</span>`;
+      }
+    }
+    
+    html += `<div style="height:${bottomPadding}px"></div>`;
     this.lineNumbers.innerHTML = html;
   },
 
@@ -3666,6 +3728,15 @@ graph LR
     const preview = document.getElementById('preview-pane');
     const ratio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
     preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight);
+    
+    // 大量行の場合はスクロール時に行番号を仮想更新
+    const lines = editor.value.split('\n');
+    if (lines.length > 1000) {
+      clearTimeout(this.scrollLineNumTimer);
+      this.scrollLineNumTimer = setTimeout(() => {
+        this.updateLineNumbersVirtual(lines);
+      }, 16); // 約60fps
+    }
   },
   
   scrollHalfPage(direction) {

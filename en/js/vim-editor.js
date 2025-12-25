@@ -218,7 +218,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.5.2!
+    return `# Welcome to mdvim v0.5.3!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -3078,13 +3078,18 @@ Press \`?\` for help
     // Light processing runs immediately
     this.updateCursorPos();
     
-    // Heavy processing is debounced (150ms)
+    // Line numbers with short debounce (50ms)
+    clearTimeout(this.lineNumberTimer);
+    this.lineNumberTimer = setTimeout(() => {
+      this.updateLineNumbers();
+    }, 50);
+    
+    // Preview with longer debounce (300ms)
     clearTimeout(this.heavyUpdateTimer);
     this.heavyUpdateTimer = setTimeout(() => {
-      this.updateLineNumbers();
       this.updatePreview();
       this.updateToc();
-    }, 150);
+    }, 300);
     
     // Track text in insert mode
     if (this.mode === 'insert' && e && e.data) {
@@ -3203,6 +3208,15 @@ Press \`?\` for help
   
   updateLineNumbers() {
     const lines = this.editor.value.split('\n');
+    const totalLines = lines.length;
+    
+    // Use virtual scroll for large files
+    if (totalLines > 1000) {
+      this.updateLineNumbersVirtual(lines);
+      return;
+    }
+    
+    // Normal processing (1000 lines or less)
     let html = '';
     let inCodeBlock = false;
     
@@ -3210,12 +3224,12 @@ Press \`?\` for help
       const lineNum = i + 1;
       const line = lines[i];
       
-      // コードブロックの開始/終了を追跡
+      // Track code block start/end
       if (line.trim().startsWith('```')) {
         inCodeBlock = !inCodeBlock;
       }
       
-      // コードブロック外で見出し行かどうか判定
+      // Check if heading line (outside code blocks)
       const headingMatch = !inCodeBlock && line.match(/^(#{1,6})\s+.+/);
       
       if (headingMatch) {
@@ -3226,6 +3240,54 @@ Press \`?\` for help
       }
     }
     
+    this.lineNumbers.innerHTML = html;
+  },
+  
+  // Virtual scroll line numbers update
+  updateLineNumbersVirtual(lines) {
+    const totalLines = lines.length;
+    const lineHeight = parseFloat(getComputedStyle(this.editor).lineHeight) || 20;
+    const scrollTop = this.editor.scrollTop;
+    const viewportHeight = this.editor.clientHeight;
+    
+    // Calculate visible range with buffer
+    const buffer = 50;
+    const startLine = Math.max(0, Math.floor(scrollTop / lineHeight) - buffer);
+    const endLine = Math.min(totalLines, Math.ceil((scrollTop + viewportHeight) / lineHeight) + buffer);
+    
+    // Calculate code block state up to start position
+    let inCodeBlock = false;
+    for (let i = 0; i < startLine; i++) {
+      if (lines[i].trim().startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+      }
+    }
+    
+    // Top/bottom spacers
+    const topPadding = startLine * lineHeight;
+    const bottomPadding = (totalLines - endLine) * lineHeight;
+    
+    let html = `<div style="height:${topPadding}px"></div>`;
+    
+    for (let i = startLine; i < endLine; i++) {
+      const lineNum = i + 1;
+      const line = lines[i];
+      
+      if (line.trim().startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+      }
+      
+      const headingMatch = !inCodeBlock && line.match(/^(#{1,6})\s+.+/);
+      
+      if (headingMatch) {
+        const level = headingMatch[1].length;
+        html += `<span class="line-num heading-h${level}">${lineNum}</span>`;
+      } else {
+        html += `<span class="line-num">${lineNum}</span>`;
+      }
+    }
+    
+    html += `<div style="height:${bottomPadding}px"></div>`;
     this.lineNumbers.innerHTML = html;
   },
 
@@ -3655,6 +3717,15 @@ Press \`?\` for help
     const preview = document.getElementById('preview-pane');
     const ratio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
     preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight);
+    
+    // Update virtual line numbers on scroll for large files
+    const lines = editor.value.split('\n');
+    if (lines.length > 1000) {
+      clearTimeout(this.scrollLineNumTimer);
+      this.scrollLineNumTimer = setTimeout(() => {
+        this.updateLineNumbersVirtual(lines);
+      }, 16); // ~60fps
+    }
   },
   
   scrollHalfPage(direction) {
