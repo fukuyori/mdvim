@@ -1,12 +1,19 @@
-/**
- * Vim Editor
- * VIMライクなテキストエディタのメインロジック
- */
-
 const VimEditor = {
   mode: 'normal',
   vimMode: false,              // VIMモード有効/無効（デフォルト: 無効）
-  register: '',
+  register: '',                // 現在選択中のレジスタ内容（後方互換）
+  registers: {                 // 名前付きレジスタ
+    '"': '',                   // 無名レジスタ（デフォルト）
+    '0': '',                   // ヤンクレジスタ
+    '1': '', '2': '', '3': '', '4': '', '5': '', '6': '', '7': '', '8': '', '9': '', // 削除レジスタ
+    'a': '', 'b': '', 'c': '', 'd': '', 'e': '', 'f': '', 'g': '', 'h': '', 'i': '', 'j': '',
+    'k': '', 'l': '', 'm': '', 'n': '', 'o': '', 'p': '', 'q': '', 'r': '', 's': '', 't': '',
+    'u': '', 'v': '', 'w': '', 'x': '', 'y': '', 'z': '',
+    '+': '', '*': '',          // システムクリップボード
+    '_': '',                   // ブラックホールレジスタ
+  },
+  selectedRegister: '"',       // 現在選択中のレジスタ名
+  pendingRegister: false,      // レジスタ選択待ち状態
   searchTerm: '',
   undoStack: [],
   redoStack: [],
@@ -65,7 +72,6 @@ const VimEditor = {
     this.tocOpenBtn = document.getElementById('toc-open-btn');
     this.tocVisible = true;
     
-    
     // フォントサイズ（%）- これは全タブ共通でOK
     this.fontSize = parseInt(localStorage.getItem('vim-md-font-size')) || 100;
     this.applyFontSize();
@@ -97,6 +103,8 @@ const VimEditor = {
     
     this.setupEventListeners();
     this.loadFromStorage();
+    this.loadMacros();        // マクロを読み込み
+    this.loadMarks();         // マークを読み込み
     this.updateLineNumbers();
     this.updatePreview();
     this.updateToc();
@@ -210,7 +218,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.4.2 へようこそ！
+    return `# mdvim v0.5 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -325,6 +333,8 @@ graph LR
   },
   
   handleKeydown(e) {
+    // デバッグ: キー入力とモード状態を出力
+    
     // NOVIMモードの場合 - シンプルに処理
     if (this.vimMode !== true) {
       
@@ -616,6 +626,12 @@ graph LR
     
     this.recordKey(key, e);
     
+    // レジスタ選択待ち状態
+    if (this.pendingRegister) {
+      this.handleRegisterSelect(key);
+      return;
+    }
+    
     // 数値プレフィックス
     if (/^[1-9]$/.test(key) || (this.count && /^[0-9]$/.test(key))) {
       this.count += key;
@@ -648,7 +664,30 @@ graph LR
       }
     }
     
+    // レジスタ選択開始
+    if (key === '"') {
+      this.pendingRegister = true;
+      this.showStatus('レジスタを選択...');
+      return;
+    }
+    
     switch(key) {
+      // マーク設定
+      case 'm':
+        this.pendingKey = 'm';
+        this.showStatus('マーク設定...');
+        return;
+      // マークへジャンプ（正確な位置）
+      case '`':
+        this.pendingKey = '`';
+        this.showStatus('マークへジャンプ...');
+        return;
+      // マークへジャンプ（行頭）
+      case "'":
+        this.pendingKey = "'";
+        this.showStatus('マーク行へジャンプ...');
+        return;
+      
       // モード切替
       case 'i': 
         this.setLastEdit('insert', this.editor.selectionStart);
@@ -910,14 +949,14 @@ graph LR
       this.editor.selectionEnd = start;
       this.showStatus('ヤンクしました');
     } else if (op === 'd') {
-      this.register = text;
+      this.setRegister(text);
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
       this.setLastEdit('d' + motion, null, count);
       this.onInput();
     } else if (op === 'c') {
-      this.register = text;
+      this.setRegister(text);
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
@@ -1016,7 +1055,8 @@ graph LR
       case 'm':
         if (/^[a-z]$/.test(key)) {
           this.marks[key] = this.editor.selectionStart;
-          this.showStatus(`Mark set`);
+          this.saveMarks();
+          this.showStatus(`マーク '${key}' を設定`);
         }
         break;
       case "'":
@@ -1081,7 +1121,7 @@ graph LR
         if (key === 'g') {
           this.saveState();
           const pos = this.editor.selectionStart;
-          this.register = this.editor.value.substring(0, pos);
+          this.setRegister(this.editor.value.substring(0, pos));
           this.editor.value = this.editor.value.substring(pos);
           this.editor.selectionStart = 0;
           this.editor.selectionEnd = 0;
@@ -1137,7 +1177,7 @@ graph LR
         this.setRegister(text);
         this.showStatus('ヤンクしました');
       } else {
-        this.register = text;
+        this.setRegister(text);
         this.editor.value = this.editor.value.substring(0, range.start) + this.editor.value.substring(range.end);
         this.editor.selectionStart = range.start;
         this.editor.selectionEnd = range.start;
@@ -1323,7 +1363,7 @@ graph LR
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.register = this.editor.value.substring(start, end);
+        this.setRegister(this.editor.value.substring(start, end));
         this.deleteSelection();
         this.setMode('normal');
         return;
@@ -1337,7 +1377,7 @@ graph LR
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.register = this.editor.value.substring(start, end);
+        this.setRegister(this.editor.value.substring(start, end));
         this.deleteSelection();
         this.setMode('insert');
         return;
@@ -1572,12 +1612,59 @@ graph LR
       case 'marks':
         this.showMarks();
         break;
+      case 'reg': case 'registers':
+        this.showRegisters();
+        break;
+      case 'delmarks':
+        if (parts[1]) {
+          // 指定されたマークを削除
+          for (const char of parts[1]) {
+            if (this.marks[char] !== undefined) {
+              delete this.marks[char];
+            }
+          }
+          this.saveMarks();
+          this.showStatus(`マーク '${parts[1]}' を削除`);
+        } else {
+          // すべてのマークを削除
+          this.marks = {};
+          this.saveMarks();
+          this.showStatus('全マークを削除');
+        }
+        break;
+      case 'savemacro': case 'savem':
+        if (parts[1] && /^[a-z]$/.test(parts[1])) {
+          this.saveMacros();
+          this.showStatus(`マクロ '${parts[1]}' を保存`);
+        } else {
+          this.saveMacros();
+          this.showStatus('全マクロを保存');
+        }
+        break;
+      case 'loadmacro': case 'loadm':
+        this.loadMacros();
+        this.showStatus('マクロを読み込み');
+        break;
+      case 'delmacro': case 'delm':
+        if (parts[1] && /^[a-z]$/.test(parts[1])) {
+          delete this.macros[parts[1]];
+          this.saveMacros();
+          this.showStatus(`マクロ '${parts[1]}' を削除`);
+        } else {
+          this.macros = {};
+          this.saveMacros();
+          this.showStatus('全マクロを削除');
+        }
+        break;
+      case 'macros':
+        this.showMacros();
+        break;
       case 'help': case 'h':
         toggleHelp();
         break;
       case 'ls':
         this.save();
-        this.showStatus('ローカルストレージにSaved');
+        this.showStatus('ローカルストレージに保存しました');
         break;
       default:
         const lineNum = parseInt(command);
@@ -1646,12 +1733,145 @@ graph LR
   },
   
   showMarks() {
+    const text = this.editor.value;
     const markList = Object.entries(this.marks)
-      .map(([k, v]) => `'${k}: ${v}`)
+      .map(([k, pos]) => {
+        const line = text.substring(0, pos).split('\n').length;
+        const col = pos - text.lastIndexOf('\n', pos - 1);
+        return `'${k}: 行${line} 列${col}`;
+      })
       .join(', ');
     this.showStatus(markList || 'マークなし');
   },
   
+  // レジスタ関連
+  showRegisters() {
+    const regList = Object.entries(this.registers)
+      .filter(([k, v]) => v)
+      .map(([k, v]) => {
+        const preview = v.length > 20 ? v.substring(0, 20) + '...' : v;
+        return `"${k}: ${preview.replace(/\n/g, '⏎')}`;
+      })
+      .join(' | ');
+    this.showStatus(regList || 'レジスタは空です');
+  },
+  
+  handleRegisterSelect(key) {
+    this.pendingRegister = false;
+    
+    if (this.registers.hasOwnProperty(key)) {
+      this.selectedRegister = key;
+      this.showStatus(`レジスタ "${key}" を選択`);
+    } else if (key === 'Escape') {
+      this.selectedRegister = '"';
+      this.showStatus('キャンセル');
+    } else {
+      this.selectedRegister = '"';
+      this.showStatus('無効なレジスタ');
+    }
+  },
+  
+  setRegister(text, isYank = false) {
+    const reg = this.selectedRegister;
+    
+    // ブラックホールレジスタは何もしない
+    if (reg === '_') {
+      this.selectedRegister = '"';
+      return;
+    }
+    
+    // 無名レジスタに常に保存
+    this.registers['"'] = text;
+    
+    // ヤンクの場合は0レジスタにも保存
+    if (isYank) {
+      this.registers['0'] = text;
+    }
+    
+    // 選択されたレジスタにも保存
+    if (reg !== '"') {
+      // 大文字レジスタは追記
+      if (/^[A-Z]$/.test(reg)) {
+        const lowerReg = reg.toLowerCase();
+        this.registers[lowerReg] = (this.registers[lowerReg] || '') + text;
+      } else {
+        this.registers[reg] = text;
+      }
+    }
+    
+    // クリップボードにもコピー
+    this.copyToClipboard(text);
+    
+    // レジスタ選択をリセット
+    this.selectedRegister = '"';
+    
+    // 後方互換性のため
+    this.setRegister(text);
+  },
+  
+  getRegister() {
+    const reg = this.selectedRegister;
+    this.selectedRegister = '"';
+    
+    // システムクリップボードレジスタの場合
+    if (reg === '+' || reg === '*') {
+      // 非同期なので現在の値を返す
+      return this.registers[reg] || this.registers['"'];
+    }
+    
+    return this.registers[reg] || '';
+  },
+  
+  // マーク保存・読み込み
+  saveMarks() {
+    try {
+      localStorage.setItem('vim-md-marks', JSON.stringify(this.marks));
+    } catch (e) {
+      console.error('マーク保存エラー:', e);
+    }
+  },
+  
+  loadMarks() {
+    try {
+      const saved = localStorage.getItem('vim-md-marks');
+      if (saved) {
+        this.marks = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('マーク読み込みエラー:', e);
+      this.marks = {};
+    }
+  },
+  
+  // マクロ保存・読み込み
+  saveMacros() {
+    try {
+      localStorage.setItem('vim-md-macros', JSON.stringify(this.macros));
+    } catch (e) {
+      console.error('マクロ保存エラー:', e);
+    }
+  },
+  
+  loadMacros() {
+    try {
+      const saved = localStorage.getItem('vim-md-macros');
+      if (saved) {
+        this.macros = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('マクロ読み込みエラー:', e);
+      this.macros = {};
+    }
+  },
+  
+  showMacros() {
+    const macroList = Object.entries(this.macros)
+      .filter(([k, v]) => v && v.length > 0)
+      .map(([k, v]) => `@${k}: ${v.length}キー`)
+      .join(', ');
+    this.showStatus(macroList || 'マクロなし');
+  },
+
   // 行内検索
   findCharInLine(char, direction, beforeChar) {
     const text = this.editor.value;
@@ -1822,12 +2042,13 @@ graph LR
     this.macroBuffer = [];
     this.macroIndicator.classList.add('active');
     this.modeIndicator.classList.add('recording');
-    this.showStatus(`マクロ '${name}' recording started`);
+    this.showStatus(`マクロ '${name}' 記録開始`);
   },
   
   stopRecordingMacro() {
     this.macros[this.recordingMacro] = [...this.macroBuffer];
-    this.showStatus(`マクロ '${this.recordingMacro}' recording complete (${this.macroBuffer.length} キー)`);
+    this.saveMacros();  // マクロを自動保存
+    this.showStatus(`マクロ '${this.recordingMacro}' 記録完了 (${this.macroBuffer.length} キー)`);
     this.recordingMacro = null;
     this.macroBuffer = [];
     this.macroIndicator.classList.remove('active');
@@ -2204,6 +2425,7 @@ graph LR
     const pos = this.editor.selectionStart;
     const text = this.editor.value;
     if (pos < text.length) {
+      // 改行を削除する場合も考慮
       this.editor.value = text.substring(0, pos) + text.substring(pos + 1);
       this.editor.selectionStart = pos;
       this.editor.selectionEnd = pos;
@@ -2227,29 +2449,34 @@ graph LR
   
   deleteLine() {
     const text = this.editor.value;
-    if (text.length === 0) return;
+    if (text.length === 0) return; // 空のドキュメントは何もしない
     
     const pos = this.editor.selectionStart;
     const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
     let lineEnd = text.indexOf('\n', pos);
     
     if (lineEnd === -1) {
+      // 最終行の場合
       lineEnd = text.length;
+      // 前の行がある場合、前の改行も削除
       if (lineStart > 0) {
-        this.register = text.substring(lineStart, lineEnd) + '\n';
+        this.setRegister(text.substring(lineStart, lineEnd) + '\n');
         this.editor.value = text.substring(0, lineStart - 1);
         this.editor.selectionStart = Math.max(0, lineStart - 1);
         this.editor.selectionEnd = this.editor.selectionStart;
       } else {
-        this.register = text.substring(lineStart, lineEnd) + '\n';
+        // 1行目かつ最終行（ドキュメントに1行しかない）
+        this.setRegister(text.substring(lineStart, lineEnd) + '\n');
         this.editor.value = '';
         this.editor.selectionStart = 0;
         this.editor.selectionEnd = 0;
       }
     } else {
+      // 最終行ではない場合、改行も含めて削除
       lineEnd++;
-      this.register = text.substring(lineStart, lineEnd);
+      this.setRegister(text.substring(lineStart, lineEnd));
       this.editor.value = text.substring(0, lineStart) + text.substring(lineEnd);
+      // カーソル位置を調整（削除後のテキスト長を超えないように）
       const newPos = Math.min(lineStart, this.editor.value.length);
       this.editor.selectionStart = newPos;
       this.editor.selectionEnd = newPos;
@@ -2271,7 +2498,7 @@ graph LR
     const line = text.substring(lineStart, lineEnd);
     const indent = line.match(/^\s*/)[0];
     
-    this.register = line;
+    this.setRegister(line);
     this.editor.value = text.substring(0, lineStart) + indent + text.substring(lineEnd);
     this.editor.selectionStart = lineStart + indent.length;
     this.editor.selectionEnd = lineStart + indent.length;
@@ -2283,7 +2510,7 @@ graph LR
     const pos = this.editor.selectionStart;
     const match = text.substring(pos).match(/^\S*\s*/);
     if (match) {
-      this.register = match[0];
+      this.setRegister(match[0]);
       this.editor.value = text.substring(0, pos) + text.substring(pos + match[0].length);
       this.onInput();
     }
@@ -2295,7 +2522,7 @@ graph LR
     let lineEnd = text.indexOf('\n', pos);
     if (lineEnd === -1) lineEnd = text.length;
     
-    this.register = text.substring(pos, lineEnd);
+    this.setRegister(text.substring(pos, lineEnd));
     this.editor.value = text.substring(0, pos) + text.substring(lineEnd);
     
     // カーソル位置を設定（削除開始位置に留まる）
@@ -2317,7 +2544,7 @@ graph LR
     const pos = this.editor.selectionStart;
     const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
     
-    this.register = text.substring(lineStart, pos);
+    this.setRegister(text.substring(lineStart, pos));
     this.editor.value = text.substring(0, lineStart) + text.substring(pos);
     this.editor.selectionStart = lineStart;
     this.editor.selectionEnd = lineStart;
@@ -2362,7 +2589,7 @@ graph LR
   // ヤンク/ペースト
   // registerにテキストを保存し、クリップボードにもコピー
   setRegister(text) {
-    this.register = text;
+    this.setRegister(text);
     navigator.clipboard.writeText(text).catch(() => {});
   },
   
@@ -2389,29 +2616,31 @@ graph LR
   },
   
   paste() {
-    if (!this.register) return;
+    const reg = this.getRegister();
+    if (!reg) return;
     
-    if (this.register.endsWith('\n')) {
+    if (reg.endsWith('\n')) {
       let lineEnd = this.editor.value.indexOf('\n', this.editor.selectionStart);
       if (lineEnd === -1) lineEnd = this.editor.value.length;
       this.editor.selectionStart = lineEnd;
       this.editor.selectionEnd = lineEnd;
-      this.insertText('\n' + this.register.slice(0, -1));
+      this.insertText('\n' + reg.slice(0, -1));
     } else {
       this.moveCursor(1);
-      this.insertText(this.register);
+      this.insertText(reg);
     }
   },
   
   pasteBefore() {
-    if (!this.register) return;
+    const reg = this.getRegister();
+    if (!reg) return;
     
-    if (this.register.endsWith('\n')) {
+    if (reg.endsWith('\n')) {
       this.moveToLineStart();
-      this.insertText(this.register);
+      this.insertText(reg);
       this.moveToLineStart();
     } else {
-      this.insertText(this.register);
+      this.insertText(reg);
     }
   },
   
@@ -2577,6 +2806,7 @@ graph LR
     this.saveSessionData();
   },
   
+  // ダイアログで保存
   // 現在のファイルに上書き保存
   async saveToCurrentFile() {
     if (!this.currentFileHandle) {
@@ -2603,7 +2833,6 @@ graph LR
     }
   },
   
-  // ダイアログで保存
   async saveWithDialog() {
     // File System Access API が使えるか確認
     if ('showSaveFilePicker' in window) {
@@ -2628,7 +2857,7 @@ graph LR
         this.currentFileHandle = handle;
         this.modified = false;
         this.updateFileStatus();
-        this.showStatus(`"${handle.name}" をSaved`);
+        this.showStatus(`"${handle.name}" を保存しました`);
       } catch (err) {
         if (err.name !== 'AbortError') {
           this.showStatus('保存がキャンセルされました');
@@ -2730,7 +2959,7 @@ graph LR
     this.currentFileName = filename;
     this.modified = false;
     this.updateFileStatus();
-    this.showStatus(`"${filename}" をSaved`);
+    this.showStatus(`"${filename}" を保存しました`);
   },
   
   // ファイル選択ダイアログを開く
@@ -2977,7 +3206,7 @@ graph LR
     
     this.lineNumbers.innerHTML = html;
   },
-  
+
   updatePreview() {
     this.preview.innerHTML = MarkdownParser.parse(this.editor.value);
     this.renderMath();
@@ -3173,6 +3402,7 @@ graph LR
     this.updateCursorOverlay();
   },
   
+  // プレビューを指定行に同期
   // プレビューを指定行に同期
   syncPreviewToLine(lineNum) {
     const lines = this.editor.value.split('\n');

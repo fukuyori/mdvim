@@ -1,12 +1,19 @@
-/**
- * Vim Editor
- * VIM-like text editor main logic
- */
-
 const VimEditor = {
   mode: 'normal',
   vimMode: false,              // VIM mode enabled/disabled (default: disabled)
-  register: '',
+  register: '',                // Current register content (backward compatibility)
+  registers: {                 // Named registers
+    '"': '',                   // Unnamed register (default)
+    '0': '',                   // Yank register
+    '1': '', '2': '', '3': '', '4': '', '5': '', '6': '', '7': '', '8': '', '9': '', // Delete registers
+    'a': '', 'b': '', 'c': '', 'd': '', 'e': '', 'f': '', 'g': '', 'h': '', 'i': '', 'j': '',
+    'k': '', 'l': '', 'm': '', 'n': '', 'o': '', 'p': '', 'q': '', 'r': '', 's': '', 't': '',
+    'u': '', 'v': '', 'w': '', 'x': '', 'y': '', 'z': '',
+    '+': '', '*': '',          // System clipboard
+    '_': '',                   // Black hole register
+  },
+  selectedRegister: '"',       // Currently selected register name
+  pendingRegister: false,      // Waiting for register selection
   searchTerm: '',
   undoStack: [],
   redoStack: [],
@@ -20,21 +27,21 @@ const VimEditor = {
   modified: false,
   autoSaveInterval: '1s',      // Auto-save interval: 'off', '1s', '5s', '10s', '30s', '60s'
   
-  // 新機能用の状態
-  marks: {},                    // マーク
-  macros: {},                   // マクロ
-  recordingMacro: null,         // 記録中のマクロ名
-  macroBuffer: [],              // マクロ記録バッファ
-  lastMacro: null,              // 最後に実行したマクロ
-  lastFindChar: null,           // f/F/t/T の最後の文字
+  // New feature states
+  marks: {},                    // Marks
+  macros: {},                   // Macros
+  recordingMacro: null,         // Recording macro name
+  macroBuffer: [],              // Macro recording buffer
+  lastMacro: null,              // Last executed macro
+  lastFindChar: null,           // Last character for f/F/t/T
   lastFindDirection: 1,         // 1: forward, -1: backward
   lastFindType: 'f',            // 'f' or 't'
-  lastEdit: null,               // ドットリピート用
-  lastEditText: '',             // 挿入されたテキスト
-  previousPosition: null,       // '' ジャンプ用
-  currentFileName: 'Untitled',
-  fileInsertMode: false,        // ファイル挿入モード
-  currentFileHandle: null,      // File System Access API用
+  lastEdit: null,               // For dot repeat
+  lastEditText: '',             // Inserted text
+  previousPosition: null,       // For '' jump
+  currentFileName: 'Untitled',  // Current file name
+  fileInsertMode: false,        // File insert mode
+  currentFileHandle: null,      // File System Access API
   
   init() {
     this.editor = document.getElementById('editor');
@@ -65,12 +72,11 @@ const VimEditor = {
     this.tocOpenBtn = document.getElementById('toc-open-btn');
     this.tocVisible = true;
     
-    
     // フォントサイズ（%）- これは全タブ共通でOK
     this.fontSize = parseInt(localStorage.getItem('vim-md-font-size')) || 100;
     this.applyFontSize();
     
-    // Load VIM mode setting
+    // VIMモード設定を読み込み
     this.vimMode = localStorage.getItem('vim-md-vim-mode') === 'true';
     this.updateVimModeUI();
     
@@ -80,7 +86,7 @@ const VimEditor = {
       this.autoSaveInterval = savedAutoSave;
     }
     
-    // File input event
+    // ファイル入力のイベント
     this.fileInput.addEventListener('change', e => this.handleFileOpen(e));
     
     // カーソル計測用の隠し要素
@@ -97,6 +103,8 @@ const VimEditor = {
     
     this.setupEventListeners();
     this.loadFromStorage();
+    this.loadMacros();        // Load macros
+    this.loadMarks();         // Load marks
     this.updateLineNumbers();
     this.updatePreview();
     this.updateToc();
@@ -210,7 +218,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.4.2!
+    return `# Welcome to mdvim v0.5!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -325,17 +333,18 @@ Press \`?\` for help
   },
   
   handleKeydown(e) {
-    // NOVIM mode - simple processing
+  handleKeydown(e) {
+    // NOVIMモードの場合 - シンプルに処理
     if (this.vimMode !== true) {
       
-      // Ctrl+` to switch to VIM mode
+      // Ctrl+` でVIMモードに切り替え
       if (e.ctrlKey && e.code === 'Backquote') {
         e.preventDefault();
         this.setVimMode(true);
         return;
       }
       
-      // Ctrl+key shortcuts
+      // Ctrl+キーのショートカット
       if (e.ctrlKey) {
         switch (e.key.toLowerCase()) {
           case 's':
@@ -364,11 +373,11 @@ Press \`?\` for help
             }
             return;
         }
-        // Other Ctrl+keys use browser default (Ctrl+Z, Ctrl+C, etc.)
+        // その他のCtrl+キーはブラウザのデフォルト動作（Ctrl+Z, Ctrl+C等）
         return;
       }
       
-      // Tab key
+      // Tabキー
       if (e.key === 'Tab') {
         e.preventDefault();
         this.handleTab(e.shiftKey);
@@ -391,20 +400,20 @@ Press \`?\` for help
         return;
       }
       
-      // All other keys (including arrow keys) allow default behavior
+      // その他全てのキー（矢印キー含む）はデフォルト動作を許可
       return;
     }
     
-    // VIM mode (this.vimMode === true) processing below
+    // 以下はVIMモード（this.vimMode === true）の処理
     
-    // Ctrl+` to switch to NOVIM mode
+    // Ctrl+` でNOVIMモードに切り替え
     if (e.ctrlKey && e.code === 'Backquote') {
       e.preventDefault();
       this.setVimMode(false);
       return;
     }
     
-    // Ctrl+[ as ESC
+    // Ctrl+[ をESCとして扱う
     if (e.ctrlKey && e.key === '[') {
       e.preventDefault();
       if (this.mode === 'insert') {
@@ -616,7 +625,13 @@ Press \`?\` for help
     
     this.recordKey(key, e);
     
-    // 数値プレフィックス
+    // Register selection pending
+    if (this.pendingRegister) {
+      this.handleRegisterSelect(key);
+      return;
+    }
+    
+    // Numeric prefix
     if (/^[1-9]$/.test(key) || (this.count && /^[0-9]$/.test(key))) {
       this.count += key;
       return;
@@ -625,19 +640,19 @@ Press \`?\` for help
     const count = parseInt(this.count) || 1;
     this.count = '';
     
-    // オペレーター待ち状態（d, c, y の後）
+    // Operator pending (after d, c, y)
     if (this.pendingOperator) {
       this.handleOperatorPending(key, count, e);
       return;
     }
     
-    // 保留中のキー
+    // Pending key
     if (this.pendingKey) {
       this.handlePendingKey(key, count);
       return;
     }
     
-    // Ctrl組み合わせ
+    // Ctrl combinations
     if (e.ctrlKey) {
       switch(key) {
         case 'r': this.redo(); return;
@@ -648,8 +663,31 @@ Press \`?\` for help
       }
     }
     
+    // Register selection start
+    if (key === '"') {
+      this.pendingRegister = true;
+      this.showStatus('Select register...');
+      return;
+    }
+    
     switch(key) {
-      // モード切替
+      // Mark set
+      case 'm':
+        this.pendingKey = 'm';
+        this.showStatus('Set mark...');
+        return;
+      // Jump to mark (exact position)
+      case '`':
+        this.pendingKey = '`';
+        this.showStatus('Jump to mark...');
+        return;
+      // Jump to mark (line start)
+      case "'":
+        this.pendingKey = "'";
+        this.showStatus('Jump to mark line...');
+        return;
+      
+      // Mode switch
       case 'i': 
         this.setLastEdit('insert', this.editor.selectionStart);
         this.setMode('insert'); 
@@ -910,14 +948,14 @@ Press \`?\` for help
       this.editor.selectionEnd = start;
       this.showStatus('Yanked');
     } else if (op === 'd') {
-      this.register = text;
+      this.setRegister(text);
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
       this.setLastEdit('d' + motion, null, count);
       this.onInput();
     } else if (op === 'c') {
-      this.register = text;
+      this.setRegister(text);
       this.editor.value = this.editor.value.substring(0, start) + this.editor.value.substring(end);
       this.editor.selectionStart = start;
       this.editor.selectionEnd = start;
@@ -1012,16 +1050,17 @@ Press \`?\` for help
         }
         break;
         
-      // マーク
+      // Marks
       case 'm':
         if (/^[a-z]$/.test(key)) {
           this.marks[key] = this.editor.selectionStart;
-          this.showStatus(`Mark set`);
+          this.saveMarks();
+          this.showStatus(`Mark '${key}' set`);
         }
         break;
       case "'":
         if (key === "'") {
-          // '' で直前位置へ
+          // '' jumps to previous position
           if (this.previousPosition !== null) {
             const current = this.editor.selectionStart;
             this.gotoPosition(this.previousPosition);
@@ -1041,7 +1080,7 @@ Press \`?\` for help
         }
         break;
         
-      // マクロ
+      // Macros
       case 'q_start':
         if (/^[a-z]$/.test(key)) {
           this.startRecordingMacro(key);
@@ -1081,7 +1120,7 @@ Press \`?\` for help
         if (key === 'g') {
           this.saveState();
           const pos = this.editor.selectionStart;
-          this.register = this.editor.value.substring(0, pos);
+          this.setRegister(this.editor.value.substring(0, pos));
           this.editor.value = this.editor.value.substring(pos);
           this.editor.selectionStart = 0;
           this.editor.selectionEnd = 0;
@@ -1137,7 +1176,7 @@ Press \`?\` for help
         this.setRegister(text);
         this.showStatus('Yanked');
       } else {
-        this.register = text;
+        this.setRegister(text);
         this.editor.value = this.editor.value.substring(0, range.start) + this.editor.value.substring(range.end);
         this.editor.selectionStart = range.start;
         this.editor.selectionEnd = range.start;
@@ -1307,7 +1346,7 @@ Press \`?\` for help
       case '{': this.moveParagraph(-1); break;
       case '}': this.moveParagraph(1); break;
       
-      // Indent
+      // インデント
       case '>':
         this.saveState();
         this.indentSelection(1);
@@ -1323,7 +1362,7 @@ Press \`?\` for help
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.register = this.editor.value.substring(start, end);
+        this.setRegister(this.editor.value.substring(start, end));
         this.deleteSelection();
         this.setMode('normal');
         return;
@@ -1337,7 +1376,7 @@ Press \`?\` for help
         this.saveState();
         this.editor.selectionStart = start;
         this.editor.selectionEnd = end;
-        this.register = this.editor.value.substring(start, end);
+        this.setRegister(this.editor.value.substring(start, end));
         this.deleteSelection();
         this.setMode('insert');
         return;
@@ -1358,7 +1397,7 @@ Press \`?\` for help
         return;
     }
     
-    // Update selection range
+    // Update selection
     if (this.mode === 'visual') {
       const newCurPos = this.editor.selectionStart;
       if (this.visualLine) {
@@ -1447,11 +1486,11 @@ Press \`?\` for help
         if (this.modified) {
           this.showStatus('Unsaved changes! Use :q! to force quit');
         } else {
-          this.showStatus('Close the browser to exit');
+          this.showStatus('Close browser to exit');
         }
         break;
       case 'q!':
-        this.showStatus('Close the browser to exit');
+        this.showStatus('Close browser to exit');
         break;
       case 'wq': case 'x':
         this.saveWithDialog();
@@ -1572,12 +1611,57 @@ Press \`?\` for help
       case 'marks':
         this.showMarks();
         break;
+      case 'reg': case 'registers':
+        this.showRegisters();
+        break;
+      case 'delmarks':
+        if (parts[1]) {
+          for (const char of parts[1]) {
+            if (this.marks[char] !== undefined) {
+              delete this.marks[char];
+            }
+          }
+          this.saveMarks();
+          this.showStatus(`Deleted mark '${parts[1]}'`);
+        } else {
+          this.marks = {};
+          this.saveMarks();
+          this.showStatus('Deleted all marks');
+        }
+        break;
+      case 'savemacro': case 'savem':
+        if (parts[1] && /^[a-z]$/.test(parts[1])) {
+          this.saveMacros();
+          this.showStatus(`Saved macro '${parts[1]}'`);
+        } else {
+          this.saveMacros();
+          this.showStatus('Saved all macros');
+        }
+        break;
+      case 'loadmacro': case 'loadm':
+        this.loadMacros();
+        this.showStatus('Loaded macros');
+        break;
+      case 'delmacro': case 'delm':
+        if (parts[1] && /^[a-z]$/.test(parts[1])) {
+          delete this.macros[parts[1]];
+          this.saveMacros();
+          this.showStatus(`Deleted macro '${parts[1]}'`);
+        } else {
+          this.macros = {};
+          this.saveMacros();
+          this.showStatus('Deleted all macros');
+        }
+        break;
+      case 'macros':
+        this.showMacros();
+        break;
       case 'help': case 'h':
         toggleHelp();
         break;
       case 'ls':
         this.save();
-        this.showStatus('ローカルストレージにSaved');
+        this.showStatus('Saved to localStorage');
         break;
       default:
         const lineNum = parseInt(command);
@@ -1602,7 +1686,7 @@ Press \`?\` for help
       const oldValue = this.editor.value;
       this.editor.value = oldValue.replace(regex, replacement);
       const count = (oldValue.match(new RegExp(pattern, 'g')) || []).length;
-      this.showStatus(`${count} replacements made`);
+      this.showStatus(`${count} replaced`);
     } else {
       // 現在行のみ
       const text = this.editor.value;
@@ -1641,18 +1725,150 @@ Press \`?\` for help
     }
     
     this.editor.value = lines.join('\n');
-    this.showStatus(`${count} replacements made`);
+    this.showStatus(`${count} replaced`);
     this.onInput();
   },
   
   showMarks() {
+    const text = this.editor.value;
     const markList = Object.entries(this.marks)
-      .map(([k, v]) => `'${k}: ${v}`)
+      .map(([k, pos]) => {
+        const line = text.substring(0, pos).split('\n').length;
+        const col = pos - text.lastIndexOf('\n', pos - 1);
+        return `'${k}: line ${line} col ${col}`;
+      })
       .join(', ');
     this.showStatus(markList || 'No marks');
   },
   
-  // 行内検索
+  // Register functions
+  showRegisters() {
+    const regList = Object.entries(this.registers)
+      .filter(([k, v]) => v)
+      .map(([k, v]) => {
+        const preview = v.length > 20 ? v.substring(0, 20) + '...' : v;
+        return `"${k}: ${preview.replace(/\n/g, '⏎')}`;
+      })
+      .join(' | ');
+    this.showStatus(regList || 'Registers empty');
+  },
+  
+  handleRegisterSelect(key) {
+    this.pendingRegister = false;
+    
+    if (this.registers.hasOwnProperty(key)) {
+      this.selectedRegister = key;
+      this.showStatus(`Register "${key}" selected`);
+    } else if (key === 'Escape') {
+      this.selectedRegister = '"';
+      this.showStatus('Cancelled');
+    } else {
+      this.selectedRegister = '"';
+      this.showStatus('Invalid register');
+    }
+  },
+  
+  setRegister(text, isYank = false) {
+    const reg = this.selectedRegister;
+    
+    // Black hole register does nothing
+    if (reg === '_') {
+      this.selectedRegister = '"';
+      return;
+    }
+    
+    // Always save to unnamed register
+    this.registers['"'] = text;
+    
+    // For yank, also save to 0 register
+    if (isYank) {
+      this.registers['0'] = text;
+    }
+    
+    // Save to selected register
+    if (reg !== '"') {
+      // Uppercase register appends
+      if (/^[A-Z]$/.test(reg)) {
+        const lowerReg = reg.toLowerCase();
+        this.registers[lowerReg] = (this.registers[lowerReg] || '') + text;
+      } else {
+        this.registers[reg] = text;
+      }
+    }
+    
+    // Copy to clipboard
+    this.copyToClipboard(text);
+    
+    // Reset register selection
+    this.selectedRegister = '"';
+    
+    // Backward compatibility
+    this.setRegister(text);
+  },
+  
+  getRegister() {
+    const reg = this.selectedRegister;
+    this.selectedRegister = '"';
+    
+    // System clipboard register
+    if (reg === '+' || reg === '*') {
+      return this.registers[reg] || this.registers['"'];
+    }
+    
+    return this.registers[reg] || '';
+  },
+  
+  // Mark save/load
+  saveMarks() {
+    try {
+      localStorage.setItem('vim-md-marks', JSON.stringify(this.marks));
+    } catch (e) {
+      console.error('Mark save error:', e);
+    }
+  },
+  
+  loadMarks() {
+    try {
+      const saved = localStorage.getItem('vim-md-marks');
+      if (saved) {
+        this.marks = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Mark load error:', e);
+      this.marks = {};
+    }
+  },
+  
+  // Macro save/load
+  saveMacros() {
+    try {
+      localStorage.setItem('vim-md-macros', JSON.stringify(this.macros));
+    } catch (e) {
+      console.error('Macro save error:', e);
+    }
+  },
+  
+  loadMacros() {
+    try {
+      const saved = localStorage.getItem('vim-md-macros');
+      if (saved) {
+        this.macros = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Macro load error:', e);
+      this.macros = {};
+    }
+  },
+  
+  showMacros() {
+    const macroList = Object.entries(this.macros)
+      .filter(([k, v]) => v && v.length > 0)
+      .map(([k, v]) => `@${k}: ${v.length} keys`)
+      .join(', ');
+    this.showStatus(macroList || 'No macros');
+  },
+
+  // Line search
   findCharInLine(char, direction, beforeChar) {
     const text = this.editor.value;
     const pos = this.editor.selectionStart;
@@ -1822,12 +2038,13 @@ Press \`?\` for help
     this.macroBuffer = [];
     this.macroIndicator.classList.add('active');
     this.modeIndicator.classList.add('recording');
-    this.showStatus(`マクロ '${name}' recording started`);
+    this.showStatus(`Recording macro '${name}'`);
   },
   
   stopRecordingMacro() {
     this.macros[this.recordingMacro] = [...this.macroBuffer];
-    this.showStatus(`マクロ '${this.recordingMacro}' recording complete (${this.macroBuffer.length} キー)`);
+    this.saveMacros();  // Auto-save macros
+    this.showStatus(`Macro '${this.recordingMacro}' recorded (${this.macroBuffer.length} keys)`);
     this.recordingMacro = null;
     this.macroBuffer = [];
     this.macroIndicator.classList.remove('active');
@@ -2236,19 +2453,19 @@ Press \`?\` for help
     if (lineEnd === -1) {
       lineEnd = text.length;
       if (lineStart > 0) {
-        this.register = text.substring(lineStart, lineEnd) + '\n';
+        this.setRegister(text.substring(lineStart, lineEnd) + '\n');
         this.editor.value = text.substring(0, lineStart - 1);
         this.editor.selectionStart = Math.max(0, lineStart - 1);
         this.editor.selectionEnd = this.editor.selectionStart;
       } else {
-        this.register = text.substring(lineStart, lineEnd) + '\n';
+        this.setRegister(text.substring(lineStart, lineEnd) + '\n');
         this.editor.value = '';
         this.editor.selectionStart = 0;
         this.editor.selectionEnd = 0;
       }
     } else {
       lineEnd++;
-      this.register = text.substring(lineStart, lineEnd);
+      this.setRegister(text.substring(lineStart, lineEnd));
       this.editor.value = text.substring(0, lineStart) + text.substring(lineEnd);
       const newPos = Math.min(lineStart, this.editor.value.length);
       this.editor.selectionStart = newPos;
@@ -2271,7 +2488,7 @@ Press \`?\` for help
     const line = text.substring(lineStart, lineEnd);
     const indent = line.match(/^\s*/)[0];
     
-    this.register = line;
+    this.setRegister(line);
     this.editor.value = text.substring(0, lineStart) + indent + text.substring(lineEnd);
     this.editor.selectionStart = lineStart + indent.length;
     this.editor.selectionEnd = lineStart + indent.length;
@@ -2283,7 +2500,7 @@ Press \`?\` for help
     const pos = this.editor.selectionStart;
     const match = text.substring(pos).match(/^\S*\s*/);
     if (match) {
-      this.register = match[0];
+      this.setRegister(match[0]);
       this.editor.value = text.substring(0, pos) + text.substring(pos + match[0].length);
       this.onInput();
     }
@@ -2295,7 +2512,7 @@ Press \`?\` for help
     let lineEnd = text.indexOf('\n', pos);
     if (lineEnd === -1) lineEnd = text.length;
     
-    this.register = text.substring(pos, lineEnd);
+    this.setRegister(text.substring(pos, lineEnd));
     this.editor.value = text.substring(0, pos) + text.substring(lineEnd);
     
     // Set cursor position (stay at deletion start)
@@ -2317,7 +2534,7 @@ Press \`?\` for help
     const pos = this.editor.selectionStart;
     const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
     
-    this.register = text.substring(lineStart, pos);
+    this.setRegister(text.substring(lineStart, pos));
     this.editor.value = text.substring(0, lineStart) + text.substring(pos);
     this.editor.selectionStart = lineStart;
     this.editor.selectionEnd = lineStart;
@@ -2362,7 +2579,7 @@ Press \`?\` for help
   // Yank/Paste
   // Set register and copy to clipboard
   setRegister(text) {
-    this.register = text;
+    this.setRegister(text);
     navigator.clipboard.writeText(text).catch(() => {});
   },
   
@@ -2389,29 +2606,31 @@ Press \`?\` for help
   },
   
   paste() {
-    if (!this.register) return;
+    const reg = this.getRegister();
+    if (!reg) return;
     
-    if (this.register.endsWith('\n')) {
+    if (reg.endsWith('\n')) {
       let lineEnd = this.editor.value.indexOf('\n', this.editor.selectionStart);
       if (lineEnd === -1) lineEnd = this.editor.value.length;
       this.editor.selectionStart = lineEnd;
       this.editor.selectionEnd = lineEnd;
-      this.insertText('\n' + this.register.slice(0, -1));
+      this.insertText('\n' + reg.slice(0, -1));
     } else {
       this.moveCursor(1);
-      this.insertText(this.register);
+      this.insertText(reg);
     }
   },
   
   pasteBefore() {
-    if (!this.register) return;
+    const reg = this.getRegister();
+    if (!reg) return;
     
-    if (this.register.endsWith('\n')) {
+    if (reg.endsWith('\n')) {
       this.moveToLineStart();
-      this.insertText(this.register);
+      this.insertText(reg);
       this.moveToLineStart();
     } else {
-      this.insertText(this.register);
+      this.insertText(reg);
     }
   },
   
@@ -2636,7 +2855,7 @@ Press \`?\` for help
       }
     } else {
       // フォールバック: プロンプトでファイル名を入力
-      const filename = prompt('Enter filename:', this.currentFileName || 'document.md');
+      const filename = prompt('ファイル名を入力してください:', this.currentFileName || 'document.md');
       if (filename) {
         this.downloadFile(filename);
       }
@@ -2645,7 +2864,7 @@ Press \`?\` for help
   
   // ダイアログでファイルを開く
   async openWithDialog() {
-    // File System Access API
+    // File System Access API が使えるか確認
     if ('showOpenFilePicker' in window) {
       try {
         const [handle] = await window.showOpenFilePicker({
@@ -2684,7 +2903,7 @@ Press \`?\` for help
         }
       }
     } else {
-      // Fallback: use input element
+      // フォールバック: input要素を使用
       this.openFileDialog(false);
     }
   },
@@ -2880,7 +3099,7 @@ Press \`?\` for help
   updateCursorOverlay() {
     if (!this.cursorOverlay) return;
     
-    // NOVIM mode: hide cursor overlay
+    // NOVIMモードではカーソルオーバーレイを非表示
     if (!this.vimMode) {
       this.cursorOverlay.style.display = 'none';
       return;
@@ -2889,43 +3108,43 @@ Press \`?\` for help
     const text = this.editor.value;
     const pos = this.editor.selectionStart;
     
-    // Calculate current line and column
+    // 現在行とカラムを計算
     const textBeforeCursor = text.substring(0, pos);
     const lines = textBeforeCursor.split('\n');
     const currentLineIndex = lines.length - 1;
     const currentCol = lines[currentLineIndex];
     
-    // Get line height and padding
+    // 行の高さとパディングを取得
     const style = getComputedStyle(this.editor);
     const lineHeight = parseFloat(style.lineHeight);
     const paddingTop = parseFloat(style.paddingTop);
     const paddingLeft = parseFloat(style.paddingLeft);
     
-    // Measure character width
+    // 文字幅を測定
     this.measureSpan.textContent = currentCol || ' ';
     const charWidth = this.measureSpan.getBoundingClientRect().width / (currentCol.length || 1);
     const textWidth = currentCol.length * charWidth;
     
-    // Calculate cursor position
+    // カーソル位置を計算
     const top = paddingTop + (currentLineIndex * lineHeight) - this.editor.scrollTop;
     const left = paddingLeft + textWidth - this.editor.scrollLeft;
     
-    // Character at cursor (for block cursor)
+    // カーソルの文字（ブロックカーソル用）
     const charAtCursor = text[pos] || ' ';
     const cursorWidth = charAtCursor === '\n' || charAtCursor === ' ' || pos >= text.length 
       ? charWidth 
       : charWidth;
     
-    // Position overlay
+    // オーバーレイを配置
     this.cursorOverlay.style.top = `${top}px`;
     this.cursorOverlay.style.left = `${left}px`;
     this.cursorOverlay.style.width = `${cursorWidth}px`;
     this.cursorOverlay.style.height = `${lineHeight}px`;
     
-    // Set class based on mode
+    // モードに応じてクラスを設定
     this.cursorOverlay.className = this.mode;
     
-    // Hide if off-screen
+    // 画面外なら非表示
     if (top < 0 || top > this.editor.clientHeight) {
       this.cursorOverlay.style.display = 'none';
     } else {
@@ -2977,7 +3196,7 @@ Press \`?\` for help
     
     this.lineNumbers.innerHTML = html;
   },
-  
+
   updatePreview() {
     this.preview.innerHTML = MarkdownParser.parse(this.editor.value);
     this.renderMath();
@@ -3049,6 +3268,9 @@ Press \`?\` for help
     
     if (this.fontSizeDisplay) {
       this.fontSizeDisplay.textContent = `${this.fontSize}%`;
+    }
+    
+    // 見出しハイライトのフォントサイズも更新
     }
     
     // 初期化完了後のみ表示を更新
@@ -3173,6 +3395,7 @@ Press \`?\` for help
     this.updateCursorOverlay();
   },
   
+  // プレビューを指定行に同期
   // プレビューを指定行に同期
   syncPreviewToLine(lineNum) {
     const lines = this.editor.value.split('\n');
