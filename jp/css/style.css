@@ -74,6 +74,27 @@ body {
   overflow: hidden;
 }
 
+body.drag-over {
+  outline: 3px dashed var(--accent);
+  outline-offset: -3px;
+}
+
+body.drag-over::after {
+  content: 'ファイルをドロップして開く';
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-secondary);
+  color: var(--accent);
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  z-index: 9999;
+  pointer-events: none;
+  border: 2px solid var(--accent);
+}
+
 .toolbar {
   display: flex;
   align-items: center;

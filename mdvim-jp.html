@@ -92,6 +92,27 @@ body {
   overflow: hidden;
 }
 
+body.drag-over {
+  outline: 3px dashed var(--accent);
+  outline-offset: -3px;
+}
+
+body.drag-over::after {
+  content: 'ファイルをドロップして開く';
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-secondary);
+  color: var(--accent);
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  z-index: 9999;
+  pointer-events: none;
+  border: 2px solid var(--accent);
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -5132,5 +5153,73 @@ window.addEventListener('beforeunload', e => {
         .catch(err => console.log('SW registration failed:', err));
     });
   }
+  
+  // File Handling API（PWAでファイルを関連付けて開く）
+  if ('launchQueue' in window) {
+    launchQueue.setConsumer(async (launchParams) => {
+      if (launchParams.files && launchParams.files.length > 0) {
+        const fileHandle = launchParams.files[0];
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        
+        VimEditor.editor.value = content;
+        VimEditor.currentFileName = file.name;
+        VimEditor.fileName.textContent = file.name;
+        VimEditor.modified = false;
+        VimEditor.updateLineNumbers();
+        VimEditor.updatePreview();
+        VimEditor.updateToc();
+        VimEditor.showStatus(`${file.name} を開きました`);
+      }
+    });
+  }
+  
+  // ドラッグ＆ドロップでファイルを開く
+  document.addEventListener('DOMContentLoaded', () => {
+    const dropTarget = document.body;
+    
+    // ドラッグオーバー時のスタイル
+    dropTarget.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropTarget.classList.add('drag-over');
+    });
+    
+    dropTarget.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropTarget.classList.remove('drag-over');
+    });
+    
+    dropTarget.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropTarget.classList.remove('drag-over');
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        // テキストファイルのみ受け付け
+        if (file.type.startsWith('text/') || 
+            file.name.endsWith('.md') || 
+            file.name.endsWith('.markdown') || 
+            file.name.endsWith('.txt')) {
+          const content = await file.text();
+          
+          VimEditor.editor.value = content;
+          VimEditor.currentFileName = file.name;
+          VimEditor.fileName.textContent = file.name;
+          VimEditor.modified = false;
+          VimEditor.updateLineNumbers();
+          VimEditor.updatePreview();
+          VimEditor.updateToc();
+          VimEditor.showStatus(`${file.name} を開きました`);
+          VimEditor.editor.focus();
+        } else {
+          VimEditor.showStatus('テキストファイルのみ対応しています', true);
+        }
+      }
+    });
+  });
 </script>
 </html>

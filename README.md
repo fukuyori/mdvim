@@ -382,6 +382,8 @@ All loaded via CDN (no build required):
 
 ### v0.4
 - ✨ PWA support (offline usage, installable as app)
+- ✨ File association (.md, .txt files open with mdvim)
+- ✨ Drag & drop to open files
 - 🐛 Fixed preview pane display issues
 
 ### v0.3.6

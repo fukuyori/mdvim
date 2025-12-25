@@ -21,6 +21,15 @@
       "purpose": "any maskable"
     }
   ],
+  "file_handlers": [
+    {
+      "action": "./mdvim-jp.html",
+      "accept": {
+        "text/markdown": [".md", ".markdown"],
+        "text/plain": [".txt"]
+      }
+    }
+  ],
   "categories": ["productivity", "utilities"],
   "lang": "ja",
   "dir": "ltr"

@@ -266,6 +266,72 @@
         .catch(err => console.log('SW registration failed:', err));
     });
   }
+  
+  // File Handling API (Open files associated with PWA)
+  if ('launchQueue' in window) {
+    launchQueue.setConsumer(async (launchParams) => {
+      if (launchParams.files && launchParams.files.length > 0) {
+        const fileHandle = launchParams.files[0];
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        
+        VimEditor.editor.value = content;
+        VimEditor.currentFileName = file.name;
+        VimEditor.fileName.textContent = file.name;
+        VimEditor.modified = false;
+        VimEditor.updateLineNumbers();
+        VimEditor.updatePreview();
+        VimEditor.updateToc();
+        VimEditor.showStatus(`Opened ${file.name}`);
+      }
+    });
+  }
+  
+  // Drag & Drop to open files
+  document.addEventListener('DOMContentLoaded', () => {
+    const dropTarget = document.body;
+    
+    dropTarget.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropTarget.classList.add('drag-over');
+    });
+    
+    dropTarget.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropTarget.classList.remove('drag-over');
+    });
+    
+    dropTarget.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropTarget.classList.remove('drag-over');
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        if (file.type.startsWith('text/') || 
+            file.name.endsWith('.md') || 
+            file.name.endsWith('.markdown') || 
+            file.name.endsWith('.txt')) {
+          const content = await file.text();
+          
+          VimEditor.editor.value = content;
+          VimEditor.currentFileName = file.name;
+          VimEditor.fileName.textContent = file.name;
+          VimEditor.modified = false;
+          VimEditor.updateLineNumbers();
+          VimEditor.updatePreview();
+          VimEditor.updateToc();
+          VimEditor.showStatus(`Opened ${file.name}`);
+          VimEditor.editor.focus();
+        } else {
+          VimEditor.showStatus('Only text files are supported', true);
+        }
+      }
+    });
+  });
 </script>
 </body>
 </html>
