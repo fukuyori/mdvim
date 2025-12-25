@@ -11,7 +11,7 @@
     <a href="#ライセンス">ライセンス</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.5.4-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.5.5-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/インストール-不要-brightgreen.svg" alt="No Install">
@@ -379,6 +379,15 @@ mdvim/
 - [highlight.js](https://highlightjs.org/) v11.9.0 — シンタックスハイライト
 
 ## 📝 更新履歴
+
+### v0.5.5
+- 🔧 ファイル保存をVim準拠に改善
+- ✨ ドラッグ&ドロップ・PWAでファイルハンドル保持（上書き保存対応）
+- ✨ Ctrl+S で上書き保存、Ctrl+A で別名保存ダイアログ
+- ✨ :w filename で別名保存（ファイルハンドル更新）
+- ✨ :wq は上書き保存、:x は変更時のみ保存
+- ✨ PWAでは :q/:wq/:x でアプリ終了
+- 🗑️ :saveas コマンドを削除（:w filename に統合）
 
 ### v0.5.4
 - ⚡ 大量データ（1000行以上）のパフォーマンス改善

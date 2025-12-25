@@ -11,7 +11,7 @@
     <a href="#license">License</a>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-0.5.4-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.5.5-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
     <img src="https://img.shields.io/badge/browser-Chrome%20|%20Firefox%20|%20Safari%20|%20Edge-orange.svg" alt="Browser Support">
     <img src="https://img.shields.io/badge/no%20install-required-brightgreen.svg" alt="No Install">
@@ -379,6 +379,15 @@ All loaded via CDN (no build required):
 - [highlight.js](https://highlightjs.org/) v11.9.0 — Syntax highlighting
 
 ## 📝 Changelog
+
+### v0.5.5
+- 🔧 File save behavior now follows Vim conventions
+- ✨ Drag&drop and PWA file association now keep file handle (overwrite save)
+- ✨ Ctrl+S to save, Ctrl+A for Save As dialog
+- ✨ :w filename for Save As (updates file handle)
+- ✨ :wq overwrites, :x saves only if modified
+- ✨ PWA: :q/:wq/:x closes app
+- 🗑️ Removed :saveas command (use :w filename instead)
 
 ### v0.5.4
 - ⚡ Performance improvement for large files (1000+ lines)

@@ -42,8 +42,33 @@ const VimEditor = {
   currentFileName: '無題',      // 現在のファイル名
   fileInsertMode: false,        // ファイル挿入モード
   currentFileHandle: null,      // File System Access API用
+  storageAvailable: true,       // ローカルストレージが使用可能か
+  
+  // PWA判定
+  isPWA() {
+    return window.matchMedia('(display-mode: standalone)').matches 
+        || window.navigator.standalone === true;  // iOS Safari
+  },
+  
+  // ローカルストレージの可用性チェック
+  checkStorageAvailable() {
+    try {
+      const test = '__storage_test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
   
   init() {
+    // ストレージの可用性をチェック
+    this.storageAvailable = this.checkStorageAvailable();
+    if (!this.storageAvailable) {
+      console.warn('LocalStorage is not available. Auto-save disabled.');
+    }
+    
     this.editor = document.getElementById('editor');
     this.preview = document.getElementById('preview-content');
     this.modeIndicator = document.getElementById('vim-mode');
@@ -60,10 +85,19 @@ const VimEditor = {
     this.fontSizeDisplay = document.getElementById('font-size-display');
     
     // セッションID（タブごとに独立）
-    this.sessionId = sessionStorage.getItem('vim-md-session-id');
-    if (!this.sessionId) {
-      this.sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-      sessionStorage.setItem('vim-md-session-id', this.sessionId);
+    if (this.storageAvailable) {
+      try {
+        this.sessionId = sessionStorage.getItem('vim-md-session-id');
+        if (!this.sessionId) {
+          this.sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+          sessionStorage.setItem('vim-md-session-id', this.sessionId);
+        }
+      } catch (e) {
+        this.sessionId = 'session-' + Date.now();
+        this.storageAvailable = false;
+      }
+    } else {
+      this.sessionId = 'session-' + Date.now();
     }
     
     // 目次パネル
@@ -73,17 +107,37 @@ const VimEditor = {
     this.tocVisible = true;
     
     // フォントサイズ（%）- これは全タブ共通でOK
-    this.fontSize = parseInt(localStorage.getItem('vim-md-font-size')) || 100;
+    if (this.storageAvailable) {
+      try {
+        this.fontSize = parseInt(localStorage.getItem('vim-md-font-size')) || 100;
+      } catch (e) {
+        this.fontSize = 100;
+      }
+    } else {
+      this.fontSize = 100;
+    }
     this.applyFontSize();
     
     // VIMモード設定を読み込み
-    this.vimMode = localStorage.getItem('vim-md-vim-mode') === 'true';
+    if (this.storageAvailable) {
+      try {
+        this.vimMode = localStorage.getItem('vim-md-vim-mode') === 'true';
+      } catch (e) {
+        this.vimMode = false;
+      }
+    }
     this.updateVimModeUI();
     
     // 自動保存設定を読み込み
-    const savedAutoSave = localStorage.getItem('vim-md-autosave');
-    if (savedAutoSave && ['off', '1s', '5s', '10s', '30s', '60s'].includes(savedAutoSave)) {
-      this.autoSaveInterval = savedAutoSave;
+    if (this.storageAvailable) {
+      try {
+        const savedAutoSave = localStorage.getItem('vim-md-autosave');
+        if (savedAutoSave && ['off', '1s', '5s', '10s', '30s', '60s'].includes(savedAutoSave)) {
+          this.autoSaveInterval = savedAutoSave;
+        }
+      } catch (e) {
+        // デフォルト値を使用
+      }
     }
     
     // ファイル入力のイベント
@@ -142,20 +196,29 @@ const VimEditor = {
   },
   
   loadFromStorage() {
-    // 1. まずsessionStorageを確認（タブ復帰時）
-    const sessionContent = sessionStorage.getItem('vim-md-content-' + this.sessionId);
-    if (sessionContent) {
-      this.editor.value = sessionContent;
-      // ファイル名はlocalStorageのセッションデータから復元
-      try {
-        const sessionData = JSON.parse(localStorage.getItem('vim-md-session-' + this.sessionId) || '{}');
-        if (sessionData.filename) {
-          this.currentFileName = sessionData.filename;
-          this.fileName.textContent = sessionData.filename;
-        }
-      } catch (e) {}
-      this.showStatus('セッションを復元しました');
+    // ストレージが使用不可の場合はスキップ
+    if (!this.storageAvailable) {
       return;
+    }
+    
+    try {
+      // 1. まずsessionStorageを確認（タブ復帰時）
+      const sessionContent = sessionStorage.getItem('vim-md-content-' + this.sessionId);
+      if (sessionContent) {
+        this.editor.value = sessionContent;
+        // ファイル名はlocalStorageのセッションデータから復元
+        try {
+          const sessionData = JSON.parse(localStorage.getItem('vim-md-session-' + this.sessionId) || '{}');
+          if (sessionData.filename) {
+            this.currentFileName = sessionData.filename;
+            this.fileName.textContent = sessionData.filename;
+          }
+        } catch (e) {}
+        this.showStatus('セッションを復元しました');
+        return;
+      }
+    } catch (e) {
+      console.warn('Failed to load from sessionStorage:', e);
     }
     
     // 2. 新規タブの場合、localStorageから最新のセッションを復元
@@ -193,21 +256,27 @@ const VimEditor = {
     }
     
     // 3. 旧形式のlocalStorageからマイグレーション
-    const oldContent = localStorage.getItem('vim-md-content');
-    if (oldContent) {
-      this.editor.value = oldContent;
-      const oldFilename = localStorage.getItem('vim-md-filename');
-      if (oldFilename) {
-        this.currentFileName = oldFilename;
-        this.fileName.textContent = oldFilename;
+    try {
+      const oldContent = localStorage.getItem('vim-md-content');
+      if (oldContent) {
+        this.editor.value = oldContent;
+        const oldFilename = localStorage.getItem('vim-md-filename');
+        if (oldFilename) {
+          this.currentFileName = oldFilename;
+          this.fileName.textContent = oldFilename;
+        }
+        // マイグレーション：新形式で保存
+        this.saveSessionData();
+        // 旧形式を削除
+        try {
+          localStorage.removeItem('vim-md-content');
+          localStorage.removeItem('vim-md-filename');
+        } catch (e) {}
+        this.showStatus('前回の内容を復元しました');
+        return;
       }
-      // マイグレーション：新形式で保存
-      this.saveSessionData();
-      // 旧形式を削除
-      localStorage.removeItem('vim-md-content');
-      localStorage.removeItem('vim-md-filename');
-      this.showStatus('前回の内容を復元しました');
-      return;
+    } catch (e) {
+      console.warn('Failed to migrate old storage:', e);
     }
     
     // 4. 初回起動時のデフォルト内容
@@ -218,7 +287,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.5.3 へようこそ！
+    return `# mdvim v0.5.5 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 
@@ -350,7 +419,7 @@ graph LR
         switch (e.key.toLowerCase()) {
           case 's':
             e.preventDefault();
-            this.downloadFile(this.currentFileName || '無題');
+            this.saveToCurrentFile();  // 上書き保存（ハンドルなければダイアログ）
             return;
           case 'o':
             e.preventDefault();
@@ -358,10 +427,7 @@ graph LR
             return;
           case 'a':
             e.preventDefault();
-            const filename = prompt('ファイル名を入力してください:', this.currentFileName || '無題.md');
-            if (filename) {
-              this.downloadFile(filename);
-            }
+            this.saveWithDialog();  // 別名保存ダイアログ
             return;
           case 'n':
             e.preventDefault();
@@ -1455,7 +1521,7 @@ graph LR
     }
   },
   
-  executeCommand(cmd) {
+  async executeCommand(cmd) {
     // 置換コマンドのパース
     const substituteMatch = cmd.match(/^(%)?s\/(.+?)\/(.*)\/([gic]*)$/);
     if (substituteMatch) {
@@ -1476,25 +1542,40 @@ graph LR
     switch(command) {
       case 'w':
         if (parts[1]) {
-          // ファイル名指定あり → 直接ダウンロード
-          this.downloadFile(parts[1]);
+          // ファイル名指定あり → 別名保存ダイアログ（ハンドル更新）
+          await this.saveWithDialog(parts[1]);
         } else {
           // ファイル名なし → 上書き保存（ハンドルがなければダイアログ）
-          this.saveToCurrentFile();
+          await this.saveToCurrentFile();
         }
         break;
       case 'q':
         if (this.modified) {
           this.showStatus('保存されていない変更があります！ :q! で強制終了');
-        } else {
-          this.showStatus('終了するにはブラウザを閉じてください');
+        } else if (this.isPWA()) {
+          window.close();
         }
         break;
       case 'q!':
-        this.showStatus('終了するにはブラウザを閉じてください');
+        if (this.isPWA()) {
+          window.close();
+        }
         break;
-      case 'wq': case 'x':
-        this.saveWithDialog();
+      case 'wq':
+        // 保存して終了
+        await this.saveToCurrentFile();
+        if (this.isPWA()) {
+          window.close();
+        }
+        break;
+      case 'x':
+        // 変更があれば保存して終了
+        if (this.modified) {
+          await this.saveToCurrentFile();
+        }
+        if (this.isPWA()) {
+          window.close();
+        }
         break;
       case 'e': case 'edit': case 'open':
         if (parts[1]) {
@@ -1525,13 +1606,6 @@ graph LR
           this.onInput();
         } else {
           this.openWithDialog();
-        }
-        break;
-      case 'saveas': case 'sav':
-        if (parts[1]) {
-          this.downloadFile(parts[1]);
-        } else {
-          this.saveWithDialog();
         }
         break;
       case 'read': case 'r':
@@ -1576,7 +1650,9 @@ graph LR
           const value = parts[1].split('=')[1];
           if (['off', '1s', '5s', '10s', '30s', '60s'].includes(value)) {
             this.autoSaveInterval = value;
-            localStorage.setItem('vim-md-autosave', value);
+            if (this.storageAvailable) {
+              try { localStorage.setItem('vim-md-autosave', value); } catch (e) {}
+            }
             if (value === 'off') {
               this.showStatus('自動保存: 無効');
             } else {
@@ -1831,42 +1907,46 @@ graph LR
   
   // マーク保存・読み込み
   saveMarks() {
+    if (!this.storageAvailable) return;
     try {
       localStorage.setItem('vim-md-marks', JSON.stringify(this.marks));
     } catch (e) {
-      console.error('マーク保存エラー:', e);
+      console.warn('マーク保存エラー:', e);
     }
   },
   
   loadMarks() {
+    if (!this.storageAvailable) return;
     try {
       const saved = localStorage.getItem('vim-md-marks');
       if (saved) {
         this.marks = JSON.parse(saved);
       }
     } catch (e) {
-      console.error('マーク読み込みエラー:', e);
+      console.warn('マーク読み込みエラー:', e);
       this.marks = {};
     }
   },
   
   // マクロ保存・読み込み
   saveMacros() {
+    if (!this.storageAvailable) return;
     try {
       localStorage.setItem('vim-md-macros', JSON.stringify(this.macros));
     } catch (e) {
-      console.error('マクロ保存エラー:', e);
+      console.warn('マクロ保存エラー:', e);
     }
   },
   
   loadMacros() {
+    if (!this.storageAvailable) return;
     try {
       const saved = localStorage.getItem('vim-md-macros');
       if (saved) {
         this.macros = JSON.parse(saved);
       }
     } catch (e) {
-      console.error('マクロ読み込みエラー:', e);
+      console.warn('マクロ読み込みエラー:', e);
       this.macros = {};
     }
   },
@@ -2776,16 +2856,26 @@ graph LR
   
   // セッションデータを保存
   saveSessionData() {
-    // sessionStorageに保存（タブ復帰用）
-    sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
+    // ストレージが使用不可の場合はスキップ
+    if (!this.storageAvailable) {
+      return;
+    }
     
-    // localStorageにセッションごとに保存
-    const sessionData = {
-      content: this.editor.value,
-      filename: this.currentFileName || '無題',
-      timestamp: Date.now()
-    };
-    localStorage.setItem('vim-md-session-' + this.sessionId, JSON.stringify(sessionData));
+    try {
+      // sessionStorageに保存（タブ復帰用）
+      sessionStorage.setItem('vim-md-content-' + this.sessionId, this.editor.value);
+      
+      // localStorageにセッションごとに保存
+      const sessionData = {
+        content: this.editor.value,
+        filename: this.currentFileName || '無題',
+        timestamp: Date.now()
+      };
+      localStorage.setItem('vim-md-session-' + this.sessionId, JSON.stringify(sessionData));
+    } catch (e) {
+      console.warn('Failed to save session data:', e);
+      return;
+    }
     
     // セッションリストを更新
     let sessions = [];
@@ -2805,6 +2895,8 @@ graph LR
   
   // 古いセッションを削除
   cleanupOldSessions() {
+    if (!this.storageAvailable) return;
+    
     const maxAge = 7 * 24 * 60 * 60 * 1000; // 7日
     const now = Date.now();
     let sessions = [];
@@ -2819,18 +2911,18 @@ graph LR
       try {
         const data = JSON.parse(localStorage.getItem('vim-md-session-' + sid) || '{}');
         if (data.timestamp && (now - data.timestamp) > maxAge) {
-          localStorage.removeItem('vim-md-session-' + sid);
+          try { localStorage.removeItem('vim-md-session-' + sid); } catch (e) {}
           return false;
         }
         return true;
       } catch (e) {
-        localStorage.removeItem('vim-md-session-' + sid);
+        try { localStorage.removeItem('vim-md-session-' + sid); } catch (e) {}
         return false;
       }
     });
     
     if (validSessions.length !== sessions.length) {
-      localStorage.setItem('vim-md-sessions', JSON.stringify(validSessions));
+      try { localStorage.setItem('vim-md-sessions', JSON.stringify(validSessions)); } catch (e) {}
     }
   },
   
@@ -2866,12 +2958,16 @@ graph LR
     }
   },
   
-  async saveWithDialog() {
+  async saveWithDialog(suggestedName = null) {
+    const filename = suggestedName || this.currentFileName || 'document.md';
+    // 拡張子がなければ .md を追加
+    const finalName = filename.includes('.') ? filename : filename + '.md';
+    
     // File System Access API が使えるか確認
     if ('showSaveFilePicker' in window) {
       try {
         const handle = await window.showSaveFilePicker({
-          suggestedName: this.currentFileName || 'document.md',
+          suggestedName: finalName,
           types: [{
             description: 'Markdown Files',
             accept: { 'text/markdown': ['.md', '.markdown'] }
@@ -2887,7 +2983,7 @@ graph LR
         
         this.currentFileName = handle.name;
         this.fileName.textContent = handle.name;
-        this.currentFileHandle = handle;
+        this.currentFileHandle = handle;  // ハンドルを更新
         this.modified = false;
         this.updateFileStatus();
         this.showStatus(`"${handle.name}" を保存しました`);
@@ -2898,9 +2994,9 @@ graph LR
       }
     } else {
       // フォールバック: プロンプトでファイル名を入力
-      const filename = prompt('ファイル名を入力してください:', this.currentFileName || 'document.md');
-      if (filename) {
-        this.downloadFile(filename);
+      const inputName = prompt('ファイル名を入力してください:', finalName);
+      if (inputName) {
+        this.downloadFile(inputName);
       }
     }
   },
@@ -3386,7 +3482,9 @@ graph LR
     if (this.fontSize < 200) {
       this.fontSize += 10;
       this.applyFontSize();
-      localStorage.setItem('vim-md-font-size', this.fontSize);
+      if (this.storageAvailable) {
+        try { localStorage.setItem('vim-md-font-size', this.fontSize); } catch (e) {}
+      }
     }
   },
   
@@ -3395,14 +3493,18 @@ graph LR
     if (this.fontSize > 50) {
       this.fontSize -= 10;
       this.applyFontSize();
-      localStorage.setItem('vim-md-font-size', this.fontSize);
+      if (this.storageAvailable) {
+        try { localStorage.setItem('vim-md-font-size', this.fontSize); } catch (e) {}
+      }
     }
   },
   
   // VIMモードを設定
   setVimMode(enabled) {
     this.vimMode = enabled;
-    localStorage.setItem('vim-md-vim-mode', enabled);
+    if (this.storageAvailable) {
+      try { localStorage.setItem('vim-md-vim-mode', enabled); } catch (e) {}
+    }
     if (enabled) {
       this.mode = 'normal';
       this.editor.classList.remove('insert-mode');
