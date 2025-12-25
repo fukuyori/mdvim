@@ -3,7 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.3.6 - Vim-style Markdown Editor</title>
+  <title>mdvim v0.4 - Vim-style Markdown Editor</title>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#7aa2f7">
+  <meta name="description" content="Vim keybindings markdown editor with live preview">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- KaTeX CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <!-- Highlight.js CSS -->
@@ -787,7 +794,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.3.6</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.4</span></div>
     <div class="view-controls">
       <button id="btn-edit" onclick="setViewMode('edit')">Edit</button>
       <button id="btn-preview" onclick="setViewMode('preview')">Preview</button>
@@ -1672,7 +1679,7 @@ const VimEditor = {
   
   // Get welcome document content
   getWelcomeContent() {
-    return `# Welcome to mdvim v0.3.6!
+    return `# Welcome to mdvim v0.4!
 
 **mdvim** is a Vim-style Markdown editor.
 
@@ -5106,5 +5113,15 @@ window.addEventListener('beforeunload', e => {
     theme: 'dark',
     securityLevel: 'loose'
   });
+</script>
+<script>
+  // Service Worker登録（PWA）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.log('SW registration failed:', err));
+    });
+  }
 </script>
 </html>

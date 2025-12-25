@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1b26"/>
+      <stop offset="100%" style="stop-color:#24283b"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+  <!-- Document icon -->
+  <rect x="120" y="80" width="272" height="352" rx="20" fill="#414868"/>
+  <rect x="140" y="100" width="232" height="312" rx="12" fill="#1a1b26"/>
+  <!-- Text lines representing markdown -->
+  <rect x="160" y="130" width="120" height="16" rx="4" fill="#7aa2f7"/>
+  <rect x="160" y="160" width="192" height="10" rx="3" fill="#565f89"/>
+  <rect x="160" y="180" width="172" height="10" rx="3" fill="#565f89"/>
+  <rect x="160" y="210" width="80" height="14" rx="4" fill="#9ece6a"/>
+  <rect x="160" y="234" width="182" height="10" rx="3" fill="#565f89"/>
+  <rect x="160" y="254" width="160" height="10" rx="3" fill="#565f89"/>
+  <rect x="160" y="284" width="60" height="12" rx="4" fill="#bb9af7"/>
+  <rect x="160" y="306" width="192" height="10" rx="3" fill="#565f89"/>
+  <rect x="160" y="326" width="140" height="10" rx="3" fill="#565f89"/>
+  <rect x="160" y="356" width="170" height="10" rx="3" fill="#565f89"/>
+  <!-- Vim cursor -->
+  <rect x="300" y="282" width="12" height="16" fill="#7aa2f7" opacity="0.9"/>
+</svg>
