@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mdvim v0.4 - Vim風マークダウンエディタ</title>
+  <title>mdvim v0.4.2 - Vim風マークダウンエディタ</title>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#7aa2f7">
   <meta name="description" content="Vim keybindings markdown editor with live preview">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- KaTeX CSS -->
@@ -815,7 +816,7 @@ kbd { background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px
 </head>
 <body>
   <header class="toolbar">
-    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.4</span></div>
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.4.2</span></div>
     <div class="view-controls">
       <button id="btn-edit" onclick="setViewMode('edit')">編集</button>
       <button id="btn-preview" onclick="setViewMode('preview')">プレビュー</button>
@@ -1701,7 +1702,7 @@ const VimEditor = {
   
   // ウェルカムドキュメントを取得
   getWelcomeContent() {
-    return `# mdvim v0.4 へようこそ！
+    return `# mdvim v0.4.2 へようこそ！
 
 **mdvim** は Vim風のMarkdownエディタです。
 

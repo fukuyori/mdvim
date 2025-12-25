@@ -1,5 +1,5 @@
 // mdvim Service Worker v0.4
-const CACHE_NAME = 'mdvim-v0.4';
+const CACHE_NAME = 'mdvim-v0.4.2';
 const ASSETS_TO_CACHE = [
   './',
   './mdvim-jp.html',
@@ -78,6 +78,12 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   // POSTリクエストはキャッシュしない
   if (event.request.method !== 'GET') {
+    return;
+  }
+  
+  // chrome-extension, moz-extension 等のスキームは除外
+  const url = new URL(event.request.url);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return;
   }
 
