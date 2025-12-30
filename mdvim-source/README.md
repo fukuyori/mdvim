@@ -2,7 +2,9 @@
 
 A lightweight, single-file Markdown editor with Vim keybindings.
 
-**[日本語](./README.ja.md)**
+**[Try Online](https://fukuyori.github.io/mdvim/mdvim.html)** | **[日本語](./README.ja.md)**
+
+**Version 0.8.0**
 
 ## Features
 
@@ -17,17 +19,26 @@ A lightweight, single-file Markdown editor with Vim keybindings.
 
 ## Quick Start
 
-### Option 1: Download and Open
+### Option 1: Try Online (Recommended)
 
-1. Download `mdvim.html` from [Releases](https://github.com/user/mdvim/releases)
-2. Open in your browser
-3. Start editing!
+Open mdvim directly in your browser:
 
-### Option 2: Build from Source
+👉 **https://fukuyori.github.io/mdvim/mdvim.html**
+
+No installation required!
+
+### Option 2: Download and Open Locally
+
+1. Go to [GitHub Repository](https://github.com/fukuyori/mdvim)
+2. Download `mdvim.html`
+3. Open in your browser
+4. Start editing!
+
+### Option 3: Build from Source
 
 ```bash
-git clone https://github.com/user/mdvim.git
-cd mdvim
+git clone https://github.com/fukuyori/mdvim.git
+cd mdvim/mdvim-source
 npm install
 node scripts/build-single.js
 # Open dist/mdvim.html in your browser

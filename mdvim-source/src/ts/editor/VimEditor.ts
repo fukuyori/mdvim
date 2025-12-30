@@ -3460,7 +3460,7 @@ ${html}
     if (helpCloseBtn) helpCloseBtn.textContent = t.helpClose;
     
     // タイトル
-    document.title = `mdvim v0.6.0 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
+    document.title = `mdvim v0.8.0 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
     
     // 言語セレクタを更新
     const selector = document.getElementById('language-selector') as HTMLSelectElement | null;

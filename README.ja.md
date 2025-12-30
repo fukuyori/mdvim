@@ -2,7 +2,9 @@
 
 軽量・単一ファイルのVimキーバインド対応Markdownエディタ
 
-**[English](./README.md)**
+**[オンラインで試す](https://fukuyori.github.io/mdvim/mdvim.html)** | **[English](./README.md)**
+
+**バージョン 0.8.0**
 
 ## 特徴
 
@@ -17,17 +19,26 @@
 
 ## クイックスタート
 
-### 方法1: ダウンロードして開く
+### 方法1: オンラインで使う（推奨）
 
-1. [Releases](https://github.com/user/mdvim/releases)から`mdvim.html`をダウンロード
-2. ブラウザで開く
-3. 編集開始！
+ブラウザで直接開くだけ：
 
-### 方法2: ソースからビルド
+👉 **https://fukuyori.github.io/mdvim/mdvim.html**
+
+インストール不要！
+
+### 方法2: ダウンロードしてローカルで使う
+
+1. [GitHubリポジトリ](https://github.com/fukuyori/mdvim)にアクセス
+2. `mdvim.html`をダウンロード
+3. ブラウザで開く
+4. 編集開始！
+
+### 方法3: ソースからビルド
 
 ```bash
-git clone https://github.com/user/mdvim.git
-cd mdvim
+git clone https://github.com/fukuyori/mdvim.git
+cd mdvim/mdvim-source
 npm install
 node scripts/build-single.js
 # dist/mdvim.html をブラウザで開く
