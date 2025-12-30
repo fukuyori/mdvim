@@ -1,0 +1,19 @@
+{
+  "name": "mdvim",
+  "version": "0.6.0",
+  "description": "Vim-style Markdown editor with live preview",
+  "type": "module",
+  "scripts": {
+    "dev": "esbuild src/ts/main.ts --bundle --outfile=dist/js/app.js --sourcemap --watch --format=esm",
+    "build": "esbuild src/ts/main.ts --bundle --outfile=dist/js/app.js --minify --format=esm",
+    "build:single": "node scripts/build-single.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist/*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": ["vim", "markdown", "editor", "pwa"],
+  "license": "MIT"
+}

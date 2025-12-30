@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mdvim v0.7.0 - Vim風マークダウンエディタ</title>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#7aa2f7">
+  <meta name="description" content="Vim keybindings markdown editor with live preview">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- Turndown (HTML to Markdown) -->
+  <script src="https://cdn.jsdelivr.net/npm/turndown@7.1.3/dist/turndown.min.js"></script>
+  <!-- Mammoth (DOCX to HTML) -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <!-- KaTeX CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <!-- Highlight.js CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <!-- CSS_PLACEHOLDER -->
+</head>
+<body>
+  <header class="toolbar">
+    <div class="logo">📝 mdvim <span style="font-size: 0.8em; color: var(--accent-green);">v0.7.0</span></div>
+    <div class="view-controls">
+      <button id="btn-edit" onclick="setViewMode('edit')">Edit</button>
+      <button id="btn-preview" onclick="setViewMode('preview')">Preview</button>
+      <button id="btn-split" class="active" onclick="setViewMode('split')">Split</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button id="btn-theme-dark" class="active" onclick="setTheme('dark')">🌙</button>
+      <button id="btn-theme-light" onclick="setTheme('light')">☀️</button>
+      <button id="btn-theme-original" onclick="setTheme('original')">💻</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button onclick="vimEditor.decreaseFontSize()" title="Smaller font">A-</button>
+      <span id="font-size-display">100%</span>
+      <button onclick="vimEditor.increaseFontSize()" title="Larger font">A+</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <select id="language-selector" onchange="vimEditor.setLanguage(this.value)">
+        <option value="en" selected>English</option>
+        <option value="ja">日本語</option>
+        <option value="ko">한국어</option>
+        <option value="zh-CN">简体中文</option>
+        <option value="es">Español</option>
+      </select>
+    </div>
+  </header>
+  
+  <main id="main-container" class="split-view">
+    <div id="toc-pane">
+      <div id="toc-header">
+        <span>Table of Contents</span>
+        <button id="toc-toggle" onclick="vimEditor.toggleToc()" title="Close TOC">◀</button>
+      </div>
+      <div id="toc-content"></div>
+    </div>
+    <button id="toc-open-btn" class="hidden" onclick="vimEditor.toggleToc()" title="Open TOC">▶</button>
+    <div id="editor-pane" class="pane">
+      <div id="editor-controls">
+        <span id="vim-mode">NORMAL</span>
+        <span id="cursor-pos">1:1</span>
+        <span id="macro-indicator">●REC</span>
+        <button id="btn-vim-mode" onclick="vimEditor.toggleVimMode()" title="VIM/Edit mode toggle">NOVIM</button>
+      </div>
+      <div id="editor-content">
+        <div id="line-numbers"></div>
+        <div id="editor-wrapper">
+          <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+          <div id="cursor-overlay"></div>
+        </div>
+      </div>
+    </div>
+    <div id="preview-pane" class="pane">
+      <div id="preview-controls">
+        <button onclick="vimEditor.foldAllHeadings()" title="Fold All">▶ Fold All</button>
+        <button onclick="vimEditor.unfoldAllHeadings()" title="Unfold All">▼ Unfold All</button>
+      </div>
+      <div id="preview-content"></div>
+    </div>
+  </main>
+  
+  <div id="command-line" class="hidden">
+    <span id="command-prefix">:</span>
+    <input type="text" id="command-input">
+  </div>
+  
+  <input type="file" id="file-input" accept=".md,.txt,.markdown,.mdvim" style="display: none;">
+  
+  <footer id="status-bar">
+    <span id="file-name">Untitled</span>
+    <span id="file-status"></span>
+    <span id="help-hint">:help to show help</span>
+  </footer>
+  
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>⌨️ Keybinding Help</h2>
+      <div class="help-columns">
+        <div class="help-section">
+          <h3>Mode Switch</h3>
+          <ul>
+            <li><kbd>i</kbd> Insert (at cursor)</li>
+            <li><kbd>I</kbd> Insert (line start)</li>
+            <li><kbd>a</kbd> Insert (after cursor)</li>
+            <li><kbd>A</kbd> Insert (line end)</li>
+            <li><kbd>o</kbd> Insert line below</li>
+            <li><kbd>O</kbd> Insert line above</li>
+            <li><kbd>v</kbd> Visual mode</li>
+            <li><kbd>V</kbd> Visual line mode</li>
+            <li><kbd>Esc</kbd> / <kbd>Ctrl+[</kbd> To normal</li>
+            <li><kbd>:</kbd> Command mode</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Movement</h3>
+          <ul>
+            <li><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd> Left/Down/Up/Right</li>
+            <li><kbd>w</kbd>/<kbd>b</kbd> Word (next/prev)</li>
+            <li><kbd>e</kbd> Word end</li>
+            <li><kbd>0</kbd>/<kbd>$</kbd> Line start/end</li>
+            <li><kbd>^</kbd> First non-blank</li>
+            <li><kbd>gg</kbd>/<kbd>G</kbd> File start/end</li>
+            <li><kbd>f</kbd><i>x</i> / <kbd>F</kbd><i>x</i> Find <i>x</i> in line</li>
+            <li><kbd>%</kbd> Matching bracket</li>
+            <li><kbd>Ctrl+f</kbd>/<kbd>Ctrl+b</kbd> Page movement</li>
+            <li><kbd>Ctrl+d</kbd>/<kbd>Ctrl+u</kbd> Half page</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Editing</h3>
+          <ul>
+            <li><kbd>x</kbd> / <kbd>X</kbd> Delete char</li>
+            <li><kbd>dd</kbd> / <kbd>dw</kbd> / <kbd>D</kbd> Delete</li>
+            <li><kbd>cc</kbd> / <kbd>cw</kbd> / <kbd>C</kbd> Change</li>
+            <li><kbd>yy</kbd> / <kbd>yw</kbd> / <kbd>Y</kbd> Yank</li>
+            <li><kbd>p</kbd> / <kbd>P</kbd> Paste</li>
+            <li><kbd>u</kbd> / <kbd>Ctrl+r</kbd> Undo/Redo</li>
+            <li><kbd>.</kbd> Repeat last edit</li>
+            <li><kbd>~</kbd> Toggle case</li>
+            <li><kbd>J</kbd> Join lines</li>
+            <li><kbd>>></kbd> / <kbd><<</kbd> Indent</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Text Objects</h3>
+          <ul>
+            <li><kbd>diw</kbd> / <kbd>daw</kbd> Delete word</li>
+            <li><kbd>di"</kbd> / <kbd>da"</kbd> Delete in "..."</li>
+            <li><kbd>di(</kbd> / <kbd>da(</kbd> Delete in (...)</li>
+            <li><kbd>di[</kbd> / <kbd>da[</kbd> Delete in [...]</li>
+            <li><kbd>di{</kbd> / <kbd>da{</kbd> Delete in {...}</li>
+          </ul>
+          <h3 style="margin-top: 1rem;">Marks & Macros</h3>
+          <ul>
+            <li><kbd>m</kbd><i>a-z</i> Set mark</li>
+            <li><kbd>'</kbd><i>a-z</i> Go to mark</li>
+            <li><kbd>q</kbd><i>a-z</i> Record macro</li>
+            <li><kbd>@</kbd><i>a-z</i> Play macro</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Search & Replace</h3>
+          <ul>
+            <li><kbd>/</kbd><i>pattern</i> Forward search</li>
+            <li><kbd>n</kbd> / <kbd>N</kbd> Next/Prev match</li>
+            <li><kbd>*</kbd> Search word under cursor</li>
+            <li><kbd>:s/old/new/</kbd> Replace (line)</li>
+            <li><kbd>:%s/old/new/g</kbd> Replace all</li>
+          </ul>
+          <h3 style="margin-top: 1rem;">Commands</h3>
+          <ul>
+            <li><kbd>:w</kbd> Save</li>
+            <li><kbd>:e</kbd> Open file</li>
+            <li><kbd>:new</kbd> New file</li>
+            <li><kbd>:q</kbd> Quit</li>
+            <li><kbd>:help</kbd> Show help</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>Markdown</h3>
+          <ul>
+            <li><kbd>$...$</kbd> Inline math</li>
+            <li><kbd>$$...$$</kbd> Block math</li>
+            <li><kbd>```mermaid</kbd> Mermaid diagram</li>
+            <li><kbd>:::details</kbd> Collapsible</li>
+          </ul>
+        </div>
+      </div>
+      <button onclick="toggleHelp()">Close (Esc)</button>
+    </div>
+  </div>
+
+  <!-- External Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+
+  <!-- JS_PLACEHOLDER -->
+
+  <script>
+    // グローバル変数
+    let vimEditor;
+
+    // ビューモード設定
+    function setViewMode(mode) {
+      const container = document.getElementById('main-container');
+      const editorPane = document.getElementById('editor-pane');
+      const previewPane = document.getElementById('preview-pane');
+      
+      container.className = mode + '-view';
+      
+      document.querySelectorAll('.view-controls button').forEach(btn => {
+        if (btn.id.startsWith('btn-')) {
+          btn.classList.remove('active');
+        }
+      });
+      document.getElementById('btn-' + mode)?.classList.add('active');
+      
+      if (mode === 'edit') {
+        editorPane.style.display = 'flex';
+        previewPane.style.display = 'none';
+      } else if (mode === 'preview') {
+        editorPane.style.display = 'none';
+        previewPane.style.display = 'flex';
+      } else {
+        editorPane.style.display = 'flex';
+        previewPane.style.display = 'flex';
+      }
+    }
+
+    // テーマ設定
+    function setTheme(theme) {
+      if (vimEditor) {
+        vimEditor.setTheme(theme);
+      } else {
+        document.body.setAttribute('data-theme', theme);
+      }
+    }
+
+    // ヘルプトグル
+    function toggleHelp() {
+      const modal = document.getElementById('help-modal');
+      modal.classList.toggle('hidden');
+    }
+
+    // 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+      // VimEditorインスタンス作成
+      if (typeof mdvim !== 'undefined' && mdvim.VimEditor) {
+        vimEditor = new mdvim.VimEditor();
+      }
+    });
+  </script>
+</body>
+</html>
