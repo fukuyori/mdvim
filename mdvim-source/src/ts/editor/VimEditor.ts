@@ -2606,7 +2606,7 @@ Give it a try!
       
       // manifest.jsonを追加（MDebook互換形式）
       const manifest = {
-        version: '0.8.1',
+        version: '0.8.2',
         app: 'mdvim',
         created: new Date().toISOString(),
         metadata: {
@@ -3531,7 +3531,7 @@ ${html}
     if (helpCloseBtn) helpCloseBtn.textContent = t.helpClose;
     
     // タイトル
-    document.title = `mdvim v0.8.1 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
+    document.title = `mdvim v0.8.2 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
     
     // 言語セレクタを更新
     const selector = document.getElementById('language-selector') as HTMLSelectElement | null;

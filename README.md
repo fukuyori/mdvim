@@ -4,7 +4,7 @@ A lightweight, single-file Markdown editor with Vim keybindings.
 
 **[Try Online](https://fukuyori.github.io/mdvim/mdvim.html)** | **[日本語](./README.ja.md)**
 
-**Version 0.8.1**
+**Version 0.8.2**
 
 ## Features
 

@@ -1,6 +1,6 @@
 # mdvim ファイル形式仕様
 
-**バージョン: 0.8.1**  
+**バージョン: 0.8.2**  
 **最終更新: 2025-01-03**
 
 ## 概要
@@ -34,7 +34,7 @@ document.mdvim (ZIPアーカイブ)
 
 ```json
 {
-  "version": "0.8.1",
+  "version": "0.8.2",
   "app": "mdvim",
   "created": "2025-01-03T12:00:00.000Z",
   "metadata": {
@@ -143,7 +143,7 @@ async function exportToMdvim(project) {
   
   // manifest.jsonを作成
   const manifest = {
-    version: '0.8.1',
+    version: '0.8.2',
     app: 'mdvim',
     created: new Date().toISOString(),
     metadata: {

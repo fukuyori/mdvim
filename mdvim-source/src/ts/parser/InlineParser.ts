@@ -70,6 +70,13 @@ export function parseInline(text: string): string {
   // リンク（強調より先に処理 - URL内の_がイタリック化されるのを防ぐ）
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   
+  // HTMLタグを一時的にプレースホルダーに置換（_を含むsrc/href属性を保護）
+  const placeholders: string[] = [];
+  result = result.replace(/<[^>]+>/g, (match) => {
+    placeholders.push(match);
+    return `\x00PH${placeholders.length - 1}\x00`;
+  });
+  
   // 取り消し線
   result = result.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   
@@ -80,6 +87,9 @@ export function parseInline(text: string): string {
   // 斜体（* と _）
   result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   result = result.replace(/_([^_]+)_/g, '<em>$1</em>');
+  
+  // プレースホルダーを復元
+  result = result.replace(/\x00PH(\d+)\x00/g, (_, idx) => placeholders[parseInt(idx)]);
   
   // 自動リンク（URLを自動でリンク化）
   result = result.replace(
