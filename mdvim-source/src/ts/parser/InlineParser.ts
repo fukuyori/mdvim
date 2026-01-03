@@ -64,6 +64,12 @@ export function parseInline(text: string): string {
   // インラインコード
   result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
   
+  // 画像（リンクや強調より先に処理 - ファイル名の_がイタリック化されるのを防ぐ）
+  result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  
+  // リンク（強調より先に処理 - URL内の_がイタリック化されるのを防ぐ）
+  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  
   // 取り消し線
   result = result.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   
@@ -74,12 +80,6 @@ export function parseInline(text: string): string {
   // 斜体（* と _）
   result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   result = result.replace(/_([^_]+)_/g, '<em>$1</em>');
-  
-  // 画像（リンクより先に処理）
-  result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
-  
-  // リンク
-  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   
   // 自動リンク（URLを自動でリンク化）
   result = result.replace(

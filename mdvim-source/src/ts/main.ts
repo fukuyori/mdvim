@@ -87,7 +87,7 @@ export {
 export * from './editor/VimCommands';
 
 // Version
-export const VERSION = '0.8.0';
+export const VERSION = '0.8.1';
 
 // Re-export VimEditor for global access
 import { VimEditor } from './editor';

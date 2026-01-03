@@ -4,7 +4,7 @@
 
 **[オンラインで試す](https://fukuyori.github.io/mdvim/mdvim.html)** | **[English](./README.md)**
 
-**バージョン 0.8.0**
+**バージョン 0.8.1**
 
 ## 特徴
 

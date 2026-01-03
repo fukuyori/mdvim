@@ -65,6 +65,17 @@ export class VimEditor {
   private currentFileName = '無題';
   private currentFileHandle: FileSystemFileHandle | null = null;
   
+  // ドキュメントメタデータ（MDebook互換）
+  private documentMetadata: {
+    title: string;
+    author: string;
+    language: string;
+  } = {
+    title: '',
+    author: '',
+    language: 'ja'
+  };
+  
   // 画像管理
   private uploadedImages: Map<string, string> = new Map();
   
@@ -2469,13 +2480,46 @@ Give it a try!
     input.value = '';
   }
   
-  /** .mdvimファイルを読み込み */
+  /** .mdvimファイルを読み込み（新旧形式対応） */
   private async loadMdvimFile(file: File): Promise<void> {
     try {
       const zip = await JSZip.loadAsync(file);
       
-      // content.mdを読み込み
-      const contentFile = zip.file('content.md');
+      // manifest.jsonを読み込み
+      let contentFileName = 'content.md';
+      const manifestFile = zip.file('manifest.json');
+      if (manifestFile) {
+        try {
+          const manifestText = await manifestFile.async('string');
+          const manifest = JSON.parse(manifestText);
+          
+          // メタデータを読み込み（新形式の場合）
+          if (manifest.metadata) {
+            this.documentMetadata = {
+              title: manifest.metadata.title || '',
+              author: manifest.metadata.author || '',
+              language: manifest.metadata.language || 'ja'
+            };
+          } else {
+            // 旧形式の場合はデフォルト値
+            this.documentMetadata = {
+              title: file.name.replace(/\.mdvim$/i, ''),
+              author: '',
+              language: 'ja'
+            };
+          }
+          
+          // コンテンツファイル名（指定があれば使用）
+          if (manifest.content) {
+            contentFileName = manifest.content;
+          }
+        } catch (e) {
+          console.warn('Failed to parse manifest.json:', e);
+        }
+      }
+      
+      // コンテンツを読み込み
+      const contentFile = zip.file(contentFileName);
       if (contentFile) {
         const content = await contentFile.async('string');
         this.elements.editor.value = normalizeCRLF(content);
@@ -2488,7 +2532,16 @@ Give it a try!
           const name = path.replace('images/', '');
           const data = await zipEntry.async('base64');
           const ext = name.split('.').pop()?.toLowerCase() || 'png';
-          const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+          const mimeMap: Record<string, string> = {
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'webp': 'image/webp',
+            'svg': 'image/svg+xml',
+            'bmp': 'image/bmp'
+          };
+          const mime = mimeMap[ext] || 'image/png';
           this.uploadedImages.set(name, `data:${mime};base64,${data}`);
         }
       }
@@ -2531,17 +2584,40 @@ Give it a try!
     this.showStatus(this.t.saved);
   }
   
-  /** .mdvim形式で保存 */
+  /** .mdvim形式で保存（MDebook互換） */
   private async saveMdvimFile(): Promise<void> {
     try {
       const zip = new JSZip();
       
-      // manifest.jsonを追加
-      zip.file('manifest.json', JSON.stringify({
-        version: '1.0',
+      // ファイル名からタイトルを取得（メタデータが空の場合）
+      let filename = this.currentFileName.replace(/\.(md|mdvim)$/i, '');
+      if (!filename || filename === '無題' || filename === 'Untitled') {
+        filename = 'document';
+      }
+      
+      // タイトルをメタデータに設定（空の場合はファイル名から）
+      const title = this.documentMetadata.title || filename;
+      
+      // 画像ファイル名一覧を作成
+      const imageList: string[] = [];
+      this.uploadedImages.forEach((_, name) => {
+        imageList.push(name);
+      });
+      
+      // manifest.jsonを追加（MDebook互換形式）
+      const manifest = {
+        version: '0.8.1',
         app: 'mdvim',
-        created: new Date().toISOString()
-      }, null, 2));
+        created: new Date().toISOString(),
+        metadata: {
+          title: title,
+          author: this.documentMetadata.author,
+          language: this.documentMetadata.language || this.currentLanguage
+        },
+        content: 'content.md',
+        images: imageList
+      };
+      zip.file('manifest.json', JSON.stringify(manifest, null, 2));
       
       // content.mdを追加
       zip.file('content.md', this.elements.editor.value);
@@ -2554,16 +2630,10 @@ Give it a try!
       });
       
       // ZIPを生成してダウンロード
-      const blob = await zip.generateAsync({ type: 'blob' }) as Blob;
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }) as Blob;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      
-      // ファイル名を決定
-      let filename = this.currentFileName.replace(/\.(md|mdvim)$/i, '');
-      if (!filename || filename === '無題' || filename === 'Untitled') {
-        filename = 'document';
-      }
       
       a.download = `${filename}.mdvim`;
       a.click();
@@ -2703,6 +2773,7 @@ ${html}
     this.elements.fileName.textContent = '無題';
     this.currentFileHandle = null;
     this.uploadedImages.clear();  // 画像もクリア
+    this.documentMetadata = { title: '', author: '', language: 'ja' };  // メタデータをリセット
     this.modified = false;
     this.undoStack = [];
     this.redoStack = [];
@@ -3460,7 +3531,7 @@ ${html}
     if (helpCloseBtn) helpCloseBtn.textContent = t.helpClose;
     
     // タイトル
-    document.title = `mdvim v0.8.0 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
+    document.title = `mdvim v0.8.1 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
     
     // 言語セレクタを更新
     const selector = document.getElementById('language-selector') as HTMLSelectElement | null;
