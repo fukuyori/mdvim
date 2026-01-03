@@ -780,6 +780,8 @@ export class VimEditor {
       openFile: () => this.openFileDialog(),
       saveFile: () => this.saveCurrentFile(),
       newFile: () => this.newFile(),
+      editFile: (filename, force) => this.editFile(filename, force),
+      isModified: () => this.modified,
       setTheme: (theme) => this.setTheme(theme as Theme),
       setVimMode: (enabled) => this.setVimModeEnabled(enabled),
       setWrap: (enabled) => this.setWrapEnabled(enabled),
@@ -2409,6 +2411,8 @@ Give it a try!
       openFile: () => this.openFileDialog(),
       saveFile: () => this.saveCurrentFile(),
       newFile: () => this.newFile(),
+      editFile: (filename, force) => this.editFile(filename, force),
+      isModified: () => this.modified,
       setTheme: (theme) => this.setTheme(theme as Theme),
       setVimMode: (enabled) => this.setVimModeEnabled(enabled),
       setWrap: (enabled) => this.setWrapEnabled(enabled),
@@ -2613,7 +2617,7 @@ Give it a try!
       
       // manifest.jsonを追加（MDebook互換形式）
       const manifest = {
-        version: '0.8.2',
+        version: '0.8.3',
         app: 'mdvim',
         created: new Date().toISOString(),
         metadata: {
@@ -2702,7 +2706,7 @@ Give it a try!
       });
       
       const manifest = {
-        version: '0.8.2',
+        version: '0.8.3',
         app: 'mdvim',
         created: new Date().toISOString(),
         metadata: {
@@ -2820,6 +2824,37 @@ ${html}
     this.updatePreview();
     this.updateToc();
     this.showStatus(this.t.newFile);
+  }
+  
+  /** :e filename で新規ファイルを作成/編集 */
+  private editFile(filename: string, force?: boolean): void {
+    // 未保存の変更がある場合（forceでない場合）
+    if (this.modified && !force) {
+      this.showStatus('No write since last change (add ! to override)', true);
+      return;
+    }
+    
+    // ファイル名を正規化（.md拡張子がなければ追加）
+    let normalizedName = filename.trim();
+    if (!normalizedName.endsWith('.md') && !normalizedName.endsWith('.mdvim')) {
+      normalizedName += '.md';
+    }
+    
+    // 新規ファイルとして初期化
+    this.elements.editor.value = '';
+    this.currentFileName = normalizedName;
+    this.elements.fileName.textContent = normalizedName;
+    this.currentFileHandle = null;
+    this.uploadedImages.clear();
+    this.documentMetadata = { title: normalizedName.replace(/\.(md|mdvim)$/i, ''), author: '', language: 'ja' };
+    this.modified = false;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.updateFileStatus();
+    this.updateLineNumbers();
+    this.updatePreview();
+    this.updateToc();
+    this.showStatus(`"${normalizedName}" [New File]`);
   }
   
   private quit(): void {
@@ -3569,7 +3604,7 @@ ${html}
     if (helpCloseBtn) helpCloseBtn.textContent = t.helpClose;
     
     // タイトル
-    document.title = `mdvim v0.8.2 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
+    document.title = `mdvim v0.8.3 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
     
     // 言語セレクタを更新
     const selector = document.getElementById('language-selector') as HTMLSelectElement | null;

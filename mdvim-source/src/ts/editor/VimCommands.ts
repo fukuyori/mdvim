@@ -142,6 +142,8 @@ export interface CommandContext {
   openFile: () => void;
   saveFile: () => void;
   newFile: () => void;
+  editFile: (filename: string, force?: boolean) => void;
+  isModified: () => boolean;
   setTheme: (theme: string) => void;
   setVimMode: (enabled: boolean) => void;
   setWrap: (enabled: boolean) => void;
@@ -173,9 +175,40 @@ export function registerBuiltinCommands(context: CommandContext): void {
   
   registerCommand({
     name: 'e',
-    aliases: ['edit', 'open'],
-    handler: () => context.openFile(),
-    description: 'Open file'
+    aliases: ['edit'],
+    handler: (args) => {
+      if (!args) {
+        // 引数なし: ファイルを開くダイアログ
+        if (context.isModified()) {
+          context.showStatus('No write since last change (add ! to override)', true);
+          return;
+        }
+        context.openFile();
+      } else {
+        // 引数あり: 指定ファイルを新規作成/編集
+        if (context.isModified()) {
+          context.showStatus('No write since last change (add ! to override)', true);
+          return;
+        }
+        context.editFile(args, false);
+      }
+    },
+    description: 'Edit file (create new if not exists)'
+  });
+  
+  registerCommand({
+    name: 'e!',
+    aliases: ['edit!'],
+    handler: (args) => {
+      if (!args) {
+        // 引数なし: 強制的にファイルを開くダイアログ
+        context.openFile();
+      } else {
+        // 引数あり: 強制的に指定ファイルを新規作成/編集
+        context.editFile(args, true);
+      }
+    },
+    description: 'Edit file (discard changes)'
   });
   
   registerCommand({
