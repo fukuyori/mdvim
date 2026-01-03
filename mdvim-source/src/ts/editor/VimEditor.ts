@@ -2570,8 +2570,15 @@ Give it a try!
       return;
     }
     
+    // 画像がない場合は.md形式で保存
+    // ファイル名を.mdに変換（.mdvimから開いた場合も.mdで保存）
+    let filename = this.currentFileName.replace(/\.(md|mdvim)$/i, '') + '.md';
+    if (filename === '.md' || filename === '無題.md' || filename === 'Untitled.md') {
+      filename = 'document.md';
+    }
+    
     // 通常の.md保存
-    const handle = await saveFile(content, this.currentFileName, this.currentFileHandle);
+    const handle = await saveFile(content, filename, this.currentFileHandle);
     
     if (handle) {
       this.currentFileHandle = handle;
@@ -2667,36 +2674,67 @@ Give it a try!
   /** Markdown + 画像をZIPでエクスポート */
   private async exportMarkdownZip(): Promise<void> {
     try {
-      const zip = new JSZip();
-      
-      // Markdown本文
-      zip.file('content.md', this.elements.editor.value);
-      
-      // 画像
-      if (this.uploadedImages.size > 0) {
-        const imagesFolder = zip.folder('images');
-        this.uploadedImages.forEach((dataUrl, name) => {
-          const base64 = dataUrl.split(',')[1];
-          imagesFolder!.file(name, base64, { base64: true });
-        });
-      }
-      
-      // ZIPを生成してダウンロード
-      const blob = await zip.generateAsync({ type: 'blob' }) as Blob;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      
       let filename = this.currentFileName.replace(/\.(md|mdvim)$/i, '');
       if (!filename || filename === '無題' || filename === 'Untitled') {
         filename = 'document';
       }
       
-      a.download = `${filename}_export.zip`;
+      // 画像がない場合は単純な.mdファイルとしてエクスポート
+      if (this.uploadedImages.size === 0) {
+        const blob = new Blob([this.elements.editor.value], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showStatus(`Exported: ${filename}.md`);
+        return;
+      }
+      
+      // 画像がある場合は.mdvim形式でエクスポート
+      const zip = new JSZip();
+      
+      // manifest.jsonを追加
+      const imageList: string[] = [];
+      this.uploadedImages.forEach((_, name) => {
+        imageList.push(name);
+      });
+      
+      const manifest = {
+        version: '0.8.2',
+        app: 'mdvim',
+        created: new Date().toISOString(),
+        metadata: {
+          title: this.documentMetadata.title || filename,
+          author: this.documentMetadata.author,
+          language: this.documentMetadata.language || this.currentLanguage
+        },
+        content: 'content.md',
+        images: imageList
+      };
+      zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+      
+      // Markdown本文
+      zip.file('content.md', this.elements.editor.value);
+      
+      // 画像
+      const imagesFolder = zip.folder('images');
+      this.uploadedImages.forEach((dataUrl, name) => {
+        const base64 = dataUrl.split(',')[1];
+        imagesFolder!.file(name, base64, { base64: true });
+      });
+      
+      // ZIPを生成してダウンロード
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }) as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.mdvim`;
       a.click();
       URL.revokeObjectURL(url);
       
-      this.showStatus(`Exported: ${filename}_export.zip`);
+      this.showStatus(`Exported: ${filename}.mdvim (${this.uploadedImages.size} images)`);
     } catch (err) {
       this.showStatus('Export failed', true);
       console.error(err);
