@@ -242,6 +242,9 @@ export class VimEditor {
     });
     editor.addEventListener('scroll', () => this.syncScroll());
     
+    // IME入力開始時の処理（ノーマル/ビジュアルモードでIME入力をブロック）
+    editor.addEventListener('compositionstart', (e) => this.handleCompositionStart(e));
+    
     // IME入力完了時の処理（f/t/r コマンドで全角文字をサポート）
     editor.addEventListener('compositionend', (e) => this.handleCompositionEnd(e));
     
@@ -902,12 +905,50 @@ Give it a try!
     this.updateCursorOverlay();
   }
   
-  /** IME入力完了ハンドラ（f/t/r コマンドで全角文字をサポート） */
+  /** IME入力を許可するか判定 */
+  private shouldAllowIME(): boolean {
+    // インサートモードは常に許可
+    if (this.mode === 'insert') return true;
+    
+    // コマンドモードは常に許可
+    if (this.mode === 'command') return true;
+    
+    // VIMモードが無効なら許可
+    if (!this.vimMode) return true;
+    
+    // f/F/t/T/r/R待機中は許可
+    if (this.pendingKey === 'f' || this.pendingKey === 'F' ||
+        this.pendingKey === 't' || this.pendingKey === 'T' ||
+        this.pendingKey === 'r' || this.pendingKey === 'R') {
+      return true;
+    }
+    
+    // ノーマル/ビジュアルモードでは不許可
+    return false;
+  }
+  
+  /** IME入力開始ハンドラ（ノーマル/ビジュアルモードでIMEをブロック） */
+  private handleCompositionStart(_e: CompositionEvent): void {
+    // IMEを許可しない場合、compositionendで入力を削除する
+    // (compositionstartのpreventDefaultは多くのブラウザで効かないため)
+  }
+  
+  /** IME入力完了ハンドラ */
   private handleCompositionEnd(e: CompositionEvent): void {
     const editor = this.elements.editor;
     const inputChar = e.data;
     
     if (!inputChar || inputChar.length === 0) return;
+    
+    // IMEを許可しない場合は入力を削除
+    if (!this.shouldAllowIME()) {
+      const pos = editor.selectionStart;
+      editor.value = editor.value.substring(0, pos - inputChar.length) + editor.value.substring(pos);
+      editor.selectionStart = pos - inputChar.length;
+      editor.selectionEnd = pos - inputChar.length;
+      this.updateCursorOverlay();
+      return;
+    }
     
     // 最初の1文字を使用
     const char = inputChar[0];
@@ -2197,32 +2238,152 @@ Give it a try!
   
   // ========== ページ移動 ==========
   
+  /** Ctrl+f: 1画面下にスクロール（VIM本来の動作） */
   private pageDown(): void {
     const editor = this.elements.editor;
     const lineHeight = parseInt(getComputedStyle(editor).lineHeight);
     const visibleLines = Math.floor(editor.clientHeight / lineHeight);
-    moveDown(editor, visibleLines);
+    const overlap = 2;  // 2行のオーバーラップ
+    const scrollLines = Math.max(1, visibleLines - overlap);
+    
+    // 現在のカーソル位置と画面上の相対位置を取得
+    const text = editor.value;
+    const cursorPos = editor.selectionStart;
+    const lines = text.substring(0, cursorPos).split('\n');
+    const currentLine = lines.length - 1;
+    
+    // 画面上部からの行オフセットを計算
+    const scrollTop = editor.scrollTop;
+    const topLine = Math.floor(scrollTop / lineHeight);
+    const cursorOffsetFromTop = currentLine - topLine;
+    
+    // 新しいカーソル行を計算
+    const totalLines = text.split('\n').length;
+    const newLine = Math.min(currentLine + scrollLines, totalLines - 1);
+    
+    // 新しい行の先頭位置を取得
+    const allLines = text.split('\n');
+    let newPos = 0;
+    for (let i = 0; i < newLine; i++) {
+      newPos += allLines[i].length + 1;
+    }
+    
+    // カーソル位置を設定
+    setSelection(editor, newPos);
+    
+    // 画面をスクロール（カーソルの画面上の相対位置を維持）
+    const newScrollTop = (newLine - cursorOffsetFromTop) * lineHeight;
+    editor.scrollTop = Math.max(0, newScrollTop);
   }
   
+  /** Ctrl+b: 1画面上にスクロール（VIM本来の動作） */
   private pageUp(): void {
     const editor = this.elements.editor;
     const lineHeight = parseInt(getComputedStyle(editor).lineHeight);
     const visibleLines = Math.floor(editor.clientHeight / lineHeight);
-    moveUp(editor, visibleLines);
+    const overlap = 2;  // 2行のオーバーラップ
+    const scrollLines = Math.max(1, visibleLines - overlap);
+    
+    // 現在のカーソル位置と画面上の相対位置を取得
+    const text = editor.value;
+    const cursorPos = editor.selectionStart;
+    const lines = text.substring(0, cursorPos).split('\n');
+    const currentLine = lines.length - 1;
+    
+    // 画面上部からの行オフセットを計算
+    const scrollTop = editor.scrollTop;
+    const topLine = Math.floor(scrollTop / lineHeight);
+    const cursorOffsetFromTop = currentLine - topLine;
+    
+    // 新しいカーソル行を計算
+    const newLine = Math.max(currentLine - scrollLines, 0);
+    
+    // 新しい行の先頭位置を取得
+    const allLines = text.split('\n');
+    let newPos = 0;
+    for (let i = 0; i < newLine; i++) {
+      newPos += allLines[i].length + 1;
+    }
+    
+    // カーソル位置を設定
+    setSelection(editor, newPos);
+    
+    // 画面をスクロール（カーソルの画面上の相対位置を維持）
+    const newScrollTop = (newLine - cursorOffsetFromTop) * lineHeight;
+    editor.scrollTop = Math.max(0, newScrollTop);
   }
   
+  /** Ctrl+d: 半画面下にスクロール（VIM本来の動作） */
   private halfPageDown(): void {
     const editor = this.elements.editor;
     const lineHeight = parseInt(getComputedStyle(editor).lineHeight);
-    const visibleLines = Math.floor(editor.clientHeight / lineHeight / 2);
-    moveDown(editor, visibleLines);
+    const visibleLines = Math.floor(editor.clientHeight / lineHeight);
+    const scrollLines = Math.max(1, Math.floor(visibleLines / 2));
+    
+    // 現在のカーソル位置と画面上の相対位置を取得
+    const text = editor.value;
+    const cursorPos = editor.selectionStart;
+    const lines = text.substring(0, cursorPos).split('\n');
+    const currentLine = lines.length - 1;
+    
+    // 画面上部からの行オフセットを計算
+    const scrollTop = editor.scrollTop;
+    const topLine = Math.floor(scrollTop / lineHeight);
+    const cursorOffsetFromTop = currentLine - topLine;
+    
+    // 新しいカーソル行を計算
+    const totalLines = text.split('\n').length;
+    const newLine = Math.min(currentLine + scrollLines, totalLines - 1);
+    
+    // 新しい行の先頭位置を取得
+    const allLines = text.split('\n');
+    let newPos = 0;
+    for (let i = 0; i < newLine; i++) {
+      newPos += allLines[i].length + 1;
+    }
+    
+    // カーソル位置を設定
+    setSelection(editor, newPos);
+    
+    // 画面をスクロール（カーソルの画面上の相対位置を維持）
+    const newScrollTop = (newLine - cursorOffsetFromTop) * lineHeight;
+    editor.scrollTop = Math.max(0, newScrollTop);
   }
   
+  /** Ctrl+u: 半画面上にスクロール（VIM本来の動作） */
   private halfPageUp(): void {
     const editor = this.elements.editor;
     const lineHeight = parseInt(getComputedStyle(editor).lineHeight);
-    const visibleLines = Math.floor(editor.clientHeight / lineHeight / 2);
-    moveUp(editor, visibleLines);
+    const visibleLines = Math.floor(editor.clientHeight / lineHeight);
+    const scrollLines = Math.max(1, Math.floor(visibleLines / 2));
+    
+    // 現在のカーソル位置と画面上の相対位置を取得
+    const text = editor.value;
+    const cursorPos = editor.selectionStart;
+    const lines = text.substring(0, cursorPos).split('\n');
+    const currentLine = lines.length - 1;
+    
+    // 画面上部からの行オフセットを計算
+    const scrollTop = editor.scrollTop;
+    const topLine = Math.floor(scrollTop / lineHeight);
+    const cursorOffsetFromTop = currentLine - topLine;
+    
+    // 新しいカーソル行を計算
+    const newLine = Math.max(currentLine - scrollLines, 0);
+    
+    // 新しい行の先頭位置を取得
+    const allLines = text.split('\n');
+    let newPos = 0;
+    for (let i = 0; i < newLine; i++) {
+      newPos += allLines[i].length + 1;
+    }
+    
+    // カーソル位置を設定
+    setSelection(editor, newPos);
+    
+    // 画面をスクロール（カーソルの画面上の相対位置を維持）
+    const newScrollTop = (newLine - cursorOffsetFromTop) * lineHeight;
+    editor.scrollTop = Math.max(0, newScrollTop);
   }
   
   private moveParagraphUp(count: number): void {
@@ -2617,7 +2778,7 @@ Give it a try!
       
       // manifest.jsonを追加（MDebook互換形式）
       const manifest = {
-        version: '0.8.3',
+        version: '0.8.4',
         app: 'mdvim',
         created: new Date().toISOString(),
         metadata: {
@@ -2706,7 +2867,7 @@ Give it a try!
       });
       
       const manifest = {
-        version: '0.8.3',
+        version: '0.8.4',
         app: 'mdvim',
         created: new Date().toISOString(),
         metadata: {
@@ -3604,7 +3765,7 @@ ${html}
     if (helpCloseBtn) helpCloseBtn.textContent = t.helpClose;
     
     // タイトル
-    document.title = `mdvim v0.8.3 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
+    document.title = `mdvim v0.8.4 - ${t.appTitle.split(' - ')[1] || t.appTitle}`;
     
     // 言語セレクタを更新
     const selector = document.getElementById('language-selector') as HTMLSelectElement | null;
